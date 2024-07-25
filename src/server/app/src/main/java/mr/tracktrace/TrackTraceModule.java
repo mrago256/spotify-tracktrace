@@ -9,19 +9,24 @@ import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapperConfig;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
-import mr.tracktrace.adapter.SongTableDynamoAdapter;
+
+import se.michaelthelin.spotify.SpotifyApi;
+import se.michaelthelin.spotify.SpotifyHttpManager;
+
+import java.net.URI;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 public class TrackTraceModule extends AbstractModule {
     @Provides
     @Singleton
-    Server getServer(SongTableDynamoAdapter songTableDynamoAdapter) {
-        return new Server(songTableDynamoAdapter);
-    }
-
-    @Provides
-    @Singleton
-    SongTableDynamoAdapter getSongTableDynamoAdapter(DynamoDBMapper dynamoDBMapper) {
-        return new SongTableDynamoAdapter(dynamoDBMapper);
+    SpotifyApi getSpotifyApiClient() {
+        URI redirectURI = SpotifyHttpManager.makeUri("http://localhost:8080/");
+        return SpotifyApi.builder()
+                .setClientId("someId")
+                .setClientSecret("someSecret")
+                .setRedirectUri(redirectURI)
+                .build();
     }
 
     @Provides
@@ -41,5 +46,11 @@ public class TrackTraceModule extends AbstractModule {
                 .build();
 
         return new DynamoDBMapper(ddb, mapperConfig);
+    }
+
+    @Provides
+    @Singleton
+    ScheduledExecutorService getScheduledExecutorService() {
+        return Executors.newScheduledThreadPool(2);
     }
 }

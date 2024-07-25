@@ -14,7 +14,7 @@ dataFile = open("../../final-sorted.json")
 data = json.load(dataFile)
 
 # TODO: read multiple files at a time since they come that way
-# TODO: make option to create table automatically
+# TODO: make option to create table automatically, like pass in param
 
 for songEntry in data:
   trackId = songEntry['spotify_track_uri']
@@ -41,11 +41,10 @@ table = dynamodb.Table(table_name)
 for key, value in songData.items():
   print("Writing:", key)
   table.put_item(Item={
-    "trackID": key,
+    "trackId": key,
     "timestamp": value['timestamp'],
-    "songName": value['songName']
+    "trackName": value['songName']
     })
 
-  # can probably speed this up a bit, 0.07 used only 8 wcu
-  time.sleep(0.07)
+  time.sleep(0.05)
 

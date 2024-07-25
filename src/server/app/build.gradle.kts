@@ -31,10 +31,12 @@ dependencies {
 
     implementation("com.google.inject:guice:7.0.0")
 
-    implementation("org.projectlombok:lombok:1.18.34")
-
     implementation("com.amazonaws:aws-java-sdk-core:1.12.761")
     implementation("com.amazonaws:aws-java-sdk-dynamodb:1.12.761")
+
+    implementation("se.michaelthelin.spotify:spotify-web-api-java:8.4.0")
+
+    implementation("io.github.resilience4j:resilience4j-retry:2.2.0")
 
     compileOnly("org.projectlombok:lombok:1.18.34")
     annotationProcessor("org.projectlombok:lombok:1.18.34")
