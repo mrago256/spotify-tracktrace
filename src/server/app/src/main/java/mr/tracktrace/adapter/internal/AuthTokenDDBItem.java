@@ -9,7 +9,6 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
-import mr.tracktrace.model.SongItem;
 
 @Data
 @Builder
@@ -17,23 +16,16 @@ import mr.tracktrace.model.SongItem;
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 @DynamoDBTable(tableName = DDBItem.TABLE_NAME)
-public class SongItemDDBItem extends DDBItem {
+public class AuthTokenDDBItem extends DDBItem {
     @NonNull
     @DynamoDBHashKey(attributeName = TRACK_ID_KEY)
-    private String trackId;
+    private String tokenName;
+
+    @NonNull
+    @DynamoDBAttribute(attributeName = TRACK_NAME_KEY)
+    private String authToken;
 
     @NonNull
     @DynamoDBAttribute(attributeName = TIMESTAMP_KEY)
     private Long timestamp;
-
-    @NonNull
-    @DynamoDBAttribute(attributeName = TRACK_NAME_KEY)
-    private String trackName;
-
-    public SongItem toSongItem() {
-        return SongItem.builder()
-                .trackID(trackId)
-                .trackName(trackName)
-                .build();
-    }
 }

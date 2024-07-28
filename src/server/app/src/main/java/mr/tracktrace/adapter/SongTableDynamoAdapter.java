@@ -3,6 +3,7 @@ package mr.tracktrace.adapter;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import mr.tracktrace.adapter.internal.AuthTokenDDBItem;
 import mr.tracktrace.adapter.internal.SongItemDDBItem;
 import mr.tracktrace.model.SongItem;
 
@@ -25,6 +26,16 @@ public class SongTableDynamoAdapter {
                 .build();
 
         dynamoDBMapper.save(songItemDDBItem);
+    }
+
+    public void writeAccessTokenToTable(String token) {
+        AuthTokenDDBItem authTokenDDBItem = AuthTokenDDBItem.builder()
+                .tokenName("auth-token")
+                .authToken(token)
+                .timestamp(Instant.now().getEpochSecond())
+                .build();
+
+        dynamoDBMapper.save(authTokenDDBItem);
     }
 
     public boolean songInTable(SongItem songItem) {

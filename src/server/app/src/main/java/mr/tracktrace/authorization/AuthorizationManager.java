@@ -5,6 +5,7 @@ import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import mr.tracktrace.adapter.SongTableDynamoAdapter;
 import org.apache.hc.core5.http.ParseException;
 import se.michaelthelin.spotify.SpotifyApi;
 import se.michaelthelin.spotify.enums.AuthorizationScope;
@@ -26,11 +27,13 @@ public class AuthorizationManager {
             .build();
 
     private final SpotifyApi spotifyApi;
+    private final SongTableDynamoAdapter songTableDynamoAdapter;
     private final Retry refreshAuthorizationRetryPolicy;
 
     @Inject
-    public AuthorizationManager(SpotifyApi spotifyApi) {
+    public AuthorizationManager(SongTableDynamoAdapter songTableDynamoAdapter, SpotifyApi spotifyApi) {
         this.spotifyApi = spotifyApi;
+        this.songTableDynamoAdapter = songTableDynamoAdapter;
         this.refreshAuthorizationRetryPolicy = Retry.of("retry-auth-refresh", refreshAuthorizationRetryPolicyConfig);
     }
 
@@ -53,6 +56,7 @@ public class AuthorizationManager {
 
             spotifyApi.setAccessToken(authorizationCodeCredentials.getAccessToken());
             spotifyApi.setRefreshToken(authorizationCodeCredentials.getRefreshToken());
+            songTableDynamoAdapter.writeAccessTokenToTable(authorizationCodeCredentials.getAccessToken());
         } catch (IOException | SpotifyWebApiException | ParseException e) {
             System.out.println("Error: " + e.getMessage());
         }
@@ -69,6 +73,7 @@ public class AuthorizationManager {
             AuthorizationCodeCredentials authorizationCodeCredentials = refreshAuthorizationCallable.call();
 
             spotifyApi.setAccessToken(authorizationCodeCredentials.getAccessToken());
+            songTableDynamoAdapter.writeAccessTokenToTable(authorizationCodeCredentials.getAccessToken());
         } catch (Exception e) {
             System.out.println("Error: " + e.getMessage());
             throw new RuntimeException(e);
