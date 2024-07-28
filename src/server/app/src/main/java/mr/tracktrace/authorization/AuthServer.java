@@ -14,7 +14,7 @@ import java.util.Map;
 
 public class AuthServer {
     public static String waitForAndRetrieveAuthCode() throws IOException, InterruptedException {
-        HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 8080), 0);
+        HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", 8080), 0);
         server.createContext("/", new MyHandler());
         server.start();
 

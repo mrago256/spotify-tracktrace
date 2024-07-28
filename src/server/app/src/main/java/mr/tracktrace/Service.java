@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit;
 public class Service {
     private static final int SONG_CYCLE_DELAY_IN_SECONDS = 10;
     private static final int AUTH_REFRESH_DELAY_IN_MINUTES = 50;
+    private static final int CYCLES_TO_SAVE_SONG = 5;
 
     private static SongItem lastKnownSong = SongItem.builder().build();
     private static Instant firstListened;
@@ -72,7 +73,7 @@ public class Service {
                 System.out.println(Instant.now().toString() + ": Increment");
                 songCycles++;
 
-                if (songCycles >= 5) {
+                if (songCycles >= CYCLES_TO_SAVE_SONG) {
                     System.out.println(Instant.now().toString() + ": Adding song: " + currentSong.getTrackName());
                     songTableDynamoAdapter.writeSongToTable(currentSong, firstListened);
                 }
