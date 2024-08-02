@@ -10,28 +10,32 @@ import boto3
 
 songData = {}
 table_name = 'tracktrace'
-dataFile = open("../../final-sorted.json")
-data = json.load(dataFile)
+pathToSongs = 'data/'
 
-# TODO: read multiple files at a time since they come that way
-# TODO: make option to create table automatically, like pass in param
+# TODO: maybe if track name and artist are the same, take lowest value
 
-for songEntry in data:
-  trackId = songEntry['spotify_track_uri']
-  timestamp = datetime.datetime.strptime(songEntry['ts'], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc).timestamp()
-  title = songEntry['master_metadata_track_name']
+jsonFiles = [jsonFile for jsonFile in os.listdir(pathToSongs) if jsonFile.endswith('.json')]
 
-  if not trackId:
-    continue
+for jsonFile in jsonFiles:
+  dataFile = open(pathToSongs + jsonFile)
+  data = json.load(dataFile)
 
-  if songEntry['reason_end'] == "trackdone" and songEntry['ms_played']  > 20_000:
-    if trackId in songData:
-      if timestamp < songData[trackId]['timestamp']:
-        songData[trackId]['timestamp'] = timestamp
-    else:
-      songData[trackId] = {'songName': title, 'timestamp': int(timestamp)}
+  for songEntry in data:
+    trackId = songEntry['spotify_track_uri']
+    timestamp = datetime.datetime.strptime(songEntry['ts'], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc).timestamp()
+    title = songEntry['master_metadata_track_name']
 
-dataFile.close()
+    if not trackId:
+      continue
+
+    if songEntry['reason_end'] == "trackdone" and songEntry['ms_played']  > 20_000:
+      if trackId in songData:
+        if timestamp < songData[trackId]['timestamp']:
+          songData[trackId]['timestamp'] = int(timestamp)
+      else:
+        songData[trackId] = {'songName': title, 'timestamp': int(timestamp)}
+
+  dataFile.close()
 
 print("Writing", len(songData), "songs to table")
 
