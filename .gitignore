@@ -8,5 +8,6 @@ lib
 gradlew
 gradlew.bat
 
-*.json
 *.class
+*.json
+*.zip

@@ -19,6 +19,7 @@ jsonFiles = [jsonFile for jsonFile in os.listdir(pathToSongs) if jsonFile.endswi
 for jsonFile in jsonFiles:
   dataFile = open(pathToSongs + jsonFile)
   data = json.load(dataFile)
+  dataFile.close()
 
   for songEntry in data:
     trackId = songEntry['spotify_track_uri']
@@ -34,8 +35,6 @@ for jsonFile in jsonFiles:
           songData[trackId]['timestamp'] = int(timestamp)
       else:
         songData[trackId] = {'songName': title, 'timestamp': int(timestamp)}
-
-  dataFile.close()
 
 print("Writing", len(songData), "songs to table")
 
