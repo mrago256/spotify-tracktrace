@@ -22,7 +22,7 @@ public class AuthServer {
             Thread.sleep(250);
         }
 
-        System.out.println("Received response. Shutting down server...");
+        System.out.println("Received response. Shutting down web server...");
 
         server.stop(0);
 

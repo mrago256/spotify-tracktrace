@@ -3,19 +3,33 @@ package mr.tracktrace.adapter;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import io.github.resilience4j.core.IntervalFunction;
+import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.retry.RetryConfig;
 import mr.tracktrace.adapter.internal.AuthTokenDDBItem;
+import mr.tracktrace.adapter.internal.DDBItem;
 import mr.tracktrace.adapter.internal.SongItemDDBItem;
 import mr.tracktrace.model.SongItem;
 
 import java.time.Instant;
+import java.util.concurrent.Callable;
 
 @Singleton
 public class SongTableDynamoAdapter {
+    private static final RetryConfig retryPolicyConfig = RetryConfig.custom()
+            .maxAttempts(3)
+            .intervalFunction(IntervalFunction.ofExponentialBackoff(5L, 2))
+            .build();
+
     private final DynamoDBMapper dynamoDBMapper;
+    private final Retry writeItemRetryPolicy;
+    private final Retry readItemRetryPolicy;
 
     @Inject
     public SongTableDynamoAdapter(DynamoDBMapper dynamoDBMapper) {
         this.dynamoDBMapper = dynamoDBMapper;
+        this.writeItemRetryPolicy = Retry.of("write-item-retry", retryPolicyConfig);
+        this.readItemRetryPolicy = Retry.of("read-item-retry", retryPolicyConfig);
     }
 
     public void writeSongToTable(SongItem songItem, Instant firstListened) {
@@ -25,7 +39,7 @@ public class SongTableDynamoAdapter {
                 .timestamp(firstListened.getEpochSecond())
                 .build();
 
-        dynamoDBMapper.save(songItemDDBItem);
+        saveItemToTable(songItemDDBItem);
     }
 
     public void writeAccessTokenToTable(String token) {
@@ -35,26 +49,34 @@ public class SongTableDynamoAdapter {
                 .timestamp(Instant.now().getEpochSecond())
                 .build();
 
-        dynamoDBMapper.save(authTokenDDBItem);
+        saveItemToTable(authTokenDDBItem);
     }
 
     public boolean songInTable(SongItem songItem) {
-        SongItemDDBItem songItemDDBItem = dynamoDBMapper.load(SongItemDDBItem.class, songItem.getTrackID());
+        Callable<SongItemDDBItem> readItemCallable = Retry.decorateCallable(
+                readItemRetryPolicy, () -> dynamoDBMapper.load(SongItemDDBItem.class, songItem.getTrackID()));
+
+        SongItemDDBItem songItemDDBItem;
+        try {
+            songItemDDBItem = readItemCallable.call();
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
+        }
 
         return songItemDDBItem != null;
     }
 
-    public void writeErrorToTable(String error) {
-        try {
-            SongItemDDBItem toWrite = SongItemDDBItem.builder()
-                    .trackId("Error")
-                    .trackName("Error: " + error)
-                    .timestamp(Instant.now().getEpochSecond())
-                    .build();
+    private void saveItemToTable(DDBItem ddbItem) {
+        Callable<Void> writeItemCallable = Retry.decorateCallable(
+                writeItemRetryPolicy, () -> {
+                    dynamoDBMapper.save(ddbItem);
+                    return null;
+                });
 
-            dynamoDBMapper.save(toWrite);
+        try {
+            writeItemCallable.call();
         } catch (Exception ex) {
-            System.out.println(Instant.now() + "Service error table write error: " + ex);
+            throw new RuntimeException(ex);
         }
     }
 }

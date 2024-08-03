@@ -8,6 +8,7 @@ import mr.tracktrace.authorization.AuthorizationManager;
 import mr.tracktrace.model.SongItem;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -51,21 +52,21 @@ public class Service {
     private Runnable mainTask() {
         return () -> {
             try {
-                SongItem currentSong = spotifyAdapter.getCurrentlyPlaying();
-                if (currentSong == null) {
+                Optional<SongItem> currentSong = spotifyAdapter.getCurrentlyPlaying();
+                if (currentSong.isEmpty()) {
                     System.out.println(Instant.now().toString() + ": No song playing");
                     return; // for now return early if no song playing
                 }
 
-                if (songTableDynamoAdapter.songInTable(currentSong)) {
+                if (songTableDynamoAdapter.songInTable(currentSong.get())) {
                     System.out.println(Instant.now().toString() + ": Song in table");
                     return; // song has already been listened to before
                 }
 
-                if (!lastKnownSong.equals(currentSong)) {
+                if (!lastKnownSong.equals(currentSong.get())) {
                     System.out.println(Instant.now().toString() + ": Different than last song");
                     songCycles = 0;
-                    lastKnownSong = currentSong;
+                    lastKnownSong = currentSong.get();
                     firstListened = Instant.now();
                     return;
                 }
@@ -74,8 +75,8 @@ public class Service {
                 songCycles++;
 
                 if (songCycles >= CYCLES_TO_SAVE_SONG) {
-                    System.out.println(Instant.now().toString() + ": Adding song: " + currentSong.getTrackName());
-                    songTableDynamoAdapter.writeSongToTable(currentSong, firstListened);
+                    System.out.println(Instant.now().toString() + ": Adding song: " + currentSong.get().getTrackName());
+                    songTableDynamoAdapter.writeSongToTable(currentSong.get(), firstListened);
                 }
             } catch (Exception ex) {
                 System.out.println(Instant.now().toString() + ": Main task error: " + ex);
@@ -90,7 +91,6 @@ public class Service {
                 authorizationManager.refreshAuthorization();
             } catch (Exception ex) {
                 System.out.println(Instant.now().toString() + ": Refresh token error: " + ex);
-                songTableDynamoAdapter.writeErrorToTable("Failed to refresh token " + ex.getMessage());
                 System.exit(1);
             }
         };

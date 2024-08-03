@@ -2,6 +2,7 @@ package mr.tracktrace;
 
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.regions.Regions;
+import com.amazonaws.retry.PredefinedRetryPolicies;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
@@ -32,9 +33,10 @@ public class TrackTraceModule extends AbstractModule {
     @Provides
     @Singleton
     AmazonDynamoDB getAmazonDynamoDB() {
+        ClientConfiguration clientConfiguration = new ClientConfiguration().withRetryPolicy(PredefinedRetryPolicies.NO_RETRY_POLICY);
         return AmazonDynamoDBClient.builder()
                 .withRegion(Regions.US_EAST_1)
-                .withClientConfiguration(new ClientConfiguration())
+                .withClientConfiguration(clientConfiguration)
                 .build();
     }
 

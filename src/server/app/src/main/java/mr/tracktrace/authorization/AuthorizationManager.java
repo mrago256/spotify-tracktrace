@@ -6,10 +6,8 @@ import io.github.resilience4j.retry.RetryConfig;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import mr.tracktrace.adapter.SongTableDynamoAdapter;
-import org.apache.hc.core5.http.ParseException;
 import se.michaelthelin.spotify.SpotifyApi;
 import se.michaelthelin.spotify.enums.AuthorizationScope;
-import se.michaelthelin.spotify.exceptions.SpotifyWebApiException;
 import se.michaelthelin.spotify.model_objects.credentials.AuthorizationCodeCredentials;
 import se.michaelthelin.spotify.requests.authorization.authorization_code.AuthorizationCodeRefreshRequest;
 import se.michaelthelin.spotify.requests.authorization.authorization_code.AuthorizationCodeRequest;
@@ -21,7 +19,7 @@ import java.util.concurrent.Callable;
 
 @Singleton
 public class AuthorizationManager {
-    private static final RetryConfig refreshAuthorizationRetryPolicyConfig = RetryConfig.custom()
+    private static final RetryConfig retryPolicyConfig = RetryConfig.custom()
             .maxAttempts(3)
             .intervalFunction(IntervalFunction.ofExponentialBackoff(5L, 2))
             .build();
@@ -29,12 +27,16 @@ public class AuthorizationManager {
     private final SpotifyApi spotifyApi;
     private final SongTableDynamoAdapter songTableDynamoAdapter;
     private final Retry refreshAuthorizationRetryPolicy;
+    private final Retry getAuthorizationRetryPolicy;
+    private final Retry getAuthorizationURIRetryPolicy;
 
     @Inject
     public AuthorizationManager(SongTableDynamoAdapter songTableDynamoAdapter, SpotifyApi spotifyApi) {
         this.spotifyApi = spotifyApi;
         this.songTableDynamoAdapter = songTableDynamoAdapter;
-        this.refreshAuthorizationRetryPolicy = Retry.of("retry-auth-refresh", refreshAuthorizationRetryPolicyConfig);
+        this.refreshAuthorizationRetryPolicy = Retry.of("auth-refresh-retry", retryPolicyConfig);
+        this.getAuthorizationRetryPolicy = Retry.of("get-auth-retry", retryPolicyConfig);
+        this.getAuthorizationURIRetryPolicy = Retry.of("get-auth-uri-retry", retryPolicyConfig);
     }
 
     public void initializeAuthorization() {
@@ -44,22 +46,26 @@ public class AuthorizationManager {
 
         try {
             authCode = AuthServer.waitForAndRetrieveAuthCode();
-        } catch (IOException | InterruptedException e) {
-            throw new RuntimeException("Server error: " + e);
+        } catch (IOException | InterruptedException ex) {
+            throw new RuntimeException("Web server error: " + ex);
         }
 
         AuthorizationCodeRequest authorizationCodeRequest = spotifyApi.authorizationCode(authCode)
                 .build();
 
-        try {
-            AuthorizationCodeCredentials authorizationCodeCredentials = authorizationCodeRequest.execute();
+        Callable<AuthorizationCodeCredentials> getAuthCodeCallable = Retry.decorateCallable(
+                getAuthorizationRetryPolicy, authorizationCodeRequest::execute);
 
-            spotifyApi.setAccessToken(authorizationCodeCredentials.getAccessToken());
-            spotifyApi.setRefreshToken(authorizationCodeCredentials.getRefreshToken());
-            songTableDynamoAdapter.writeAccessTokenToTable(authorizationCodeCredentials.getAccessToken());
-        } catch (IOException | SpotifyWebApiException | ParseException e) {
-            System.out.println("Error: " + e.getMessage());
+        AuthorizationCodeCredentials authorizationCodeCredentials;
+        try {
+            authorizationCodeCredentials = getAuthCodeCallable.call();
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
         }
+
+        spotifyApi.setAccessToken(authorizationCodeCredentials.getAccessToken());
+        spotifyApi.setRefreshToken(authorizationCodeCredentials.getRefreshToken());
+        songTableDynamoAdapter.writeAccessTokenToTable(authorizationCodeCredentials.getAccessToken());
     }
 
     public void refreshAuthorization() {
@@ -69,15 +75,15 @@ public class AuthorizationManager {
         Callable<AuthorizationCodeCredentials> refreshAuthorizationCallable = Retry.decorateCallable(
                 refreshAuthorizationRetryPolicy, authorizationCodeRefreshRequest::execute);
 
+        AuthorizationCodeCredentials authorizationCodeCredentials;
         try {
-            AuthorizationCodeCredentials authorizationCodeCredentials = refreshAuthorizationCallable.call();
-
-            spotifyApi.setAccessToken(authorizationCodeCredentials.getAccessToken());
-            songTableDynamoAdapter.writeAccessTokenToTable(authorizationCodeCredentials.getAccessToken());
-        } catch (Exception e) {
-            System.out.println("Error: " + e.getMessage());
-            throw new RuntimeException(e);
+            authorizationCodeCredentials = refreshAuthorizationCallable.call();
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
         }
+
+        spotifyApi.setAccessToken(authorizationCodeCredentials.getAccessToken());
+        songTableDynamoAdapter.writeAccessTokenToTable(authorizationCodeCredentials.getAccessToken());
     }
 
     private URI getAuthorizationURI() {
@@ -85,6 +91,16 @@ public class AuthorizationManager {
                 .scope(AuthorizationScope.USER_READ_PLAYBACK_STATE)
                 .build();
 
-        return request.execute();
+        Callable<URI> getAuthURICallable = Retry.decorateCallable(
+                getAuthorizationURIRetryPolicy, request::execute);
+
+        URI authorizationURI;
+        try {
+            authorizationURI = getAuthURICallable.call();
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
+        }
+
+        return authorizationURI;
     }
 }
