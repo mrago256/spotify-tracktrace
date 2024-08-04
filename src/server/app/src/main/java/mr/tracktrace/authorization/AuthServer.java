@@ -3,6 +3,8 @@ package mr.tracktrace.authorization;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -13,6 +15,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class AuthServer {
+    private static final Logger log = LoggerFactory.getLogger(AuthServer.class);
+
     public static String waitForAndRetrieveAuthCode() throws IOException, InterruptedException {
         HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", 8080), 0);
         server.createContext("/", new MyHandler());
@@ -22,7 +26,7 @@ public class AuthServer {
             Thread.sleep(250);
         }
 
-        System.out.println("Received response. Shutting down web server...");
+        log.info("Received response. Shutting down web server...");
 
         server.stop(0);
 

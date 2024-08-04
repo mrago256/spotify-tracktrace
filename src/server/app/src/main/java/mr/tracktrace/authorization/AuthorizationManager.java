@@ -6,6 +6,8 @@ import io.github.resilience4j.retry.RetryConfig;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import mr.tracktrace.adapter.SongTableDynamoAdapter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import se.michaelthelin.spotify.SpotifyApi;
 import se.michaelthelin.spotify.enums.AuthorizationScope;
 import se.michaelthelin.spotify.model_objects.credentials.AuthorizationCodeCredentials;
@@ -19,6 +21,7 @@ import java.util.concurrent.Callable;
 
 @Singleton
 public class AuthorizationManager {
+    private static final Logger log = LoggerFactory.getLogger(AuthorizationManager.class);
     private static final RetryConfig retryPolicyConfig = RetryConfig.custom()
             .maxAttempts(3)
             .intervalFunction(IntervalFunction.ofExponentialBackoff(5L, 2))
@@ -41,8 +44,8 @@ public class AuthorizationManager {
 
     public void initializeAuthorization() {
         String authCode;
-        System.out.println("Auth URL: " + getAuthorizationURI());
-        System.out.println("Waiting for auth response...");
+        log.info("Auth URL: {}", getAuthorizationURI());
+        log.info("Waiting for auth response...");
 
         try {
             authCode = AuthServer.waitForAndRetrieveAuthCode();

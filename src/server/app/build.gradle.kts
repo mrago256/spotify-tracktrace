@@ -38,6 +38,9 @@ dependencies {
 
     implementation("io.github.resilience4j:resilience4j-retry:2.2.0")
 
+    implementation("ch.qos.logback:logback-classic:1.5.6")
+    implementation("org.slf4j:slf4j-api:2.0.13")
+
     compileOnly("org.projectlombok:lombok:1.18.34")
     annotationProcessor("org.projectlombok:lombok:1.18.34")
 }

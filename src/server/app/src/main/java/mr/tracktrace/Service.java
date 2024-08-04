@@ -6,6 +6,8 @@ import mr.tracktrace.adapter.SongTableDynamoAdapter;
 import mr.tracktrace.adapter.SpotifyAdapter;
 import mr.tracktrace.authorization.AuthorizationManager;
 import mr.tracktrace.model.SongItem;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -14,6 +16,7 @@ import java.util.concurrent.TimeUnit;
 
 @Singleton
 public class Service {
+    private static final Logger log = LoggerFactory.getLogger(Service.class);
     private static final int SONG_CYCLE_DELAY_IN_SECONDS = 10;
     private static final int AUTH_REFRESH_DELAY_IN_MINUTES = 50;
     private static final int CYCLES_TO_SAVE_SONG = 5;
@@ -21,6 +24,7 @@ public class Service {
     private static SongItem lastKnownSong = SongItem.builder().build();
     private static Instant firstListened;
     private static int songCycles;
+
 
     private final AuthorizationManager authorizationManager;
     private final ScheduledExecutorService scheduledExecutorService;
@@ -41,7 +45,7 @@ public class Service {
     }
 
     public void start() {
-        System.out.println("Starting...");
+        log.info("Starting...");
 
         authorizationManager.initializeAuthorization();
 
@@ -54,32 +58,32 @@ public class Service {
             try {
                 Optional<SongItem> currentSong = spotifyAdapter.getCurrentlyPlaying();
                 if (currentSong.isEmpty()) {
-                    System.out.println(Instant.now().toString() + ": No song playing");
+                    log.info("No song playing");
                     return; // for now return early if no song playing
                 }
 
                 if (songTableDynamoAdapter.songInTable(currentSong.get())) {
-                    System.out.println(Instant.now().toString() + ": Song in table");
+                    log.info("Song in table");
                     return; // song has already been listened to before
                 }
 
                 if (!lastKnownSong.equals(currentSong.get())) {
-                    System.out.println(Instant.now().toString() + ": Different than last song");
+                    log.info("Current song different than last song");
                     songCycles = 0;
                     lastKnownSong = currentSong.get();
                     firstListened = Instant.now();
                     return;
                 }
 
-                System.out.println(Instant.now().toString() + ": Increment");
+                log.info("Increment");
                 songCycles++;
 
                 if (songCycles >= CYCLES_TO_SAVE_SONG) {
-                    System.out.println(Instant.now().toString() + ": Adding song: " + currentSong.get().getTrackName());
+                    log.info("Adding song: {}", currentSong.get().getTrackName());
                     songTableDynamoAdapter.writeSongToTable(currentSong.get(), firstListened);
                 }
             } catch (Exception ex) {
-                System.out.println(Instant.now().toString() + ": Main task error: " + ex);
+                log.warn("Main task error", ex);
             }
         };
     }
@@ -87,10 +91,10 @@ public class Service {
     private Runnable refreshToken() {
         return () -> {
             try {
-                System.out.println(Instant.now().toString() + ": Refreshing auth...");
+                log.info("Refreshing auth...");
                 authorizationManager.refreshAuthorization();
             } catch (Exception ex) {
-                System.out.println(Instant.now().toString() + ": Refresh token error: " + ex);
+                log.error("Refresh token error", ex);
                 System.exit(1);
             }
         };
