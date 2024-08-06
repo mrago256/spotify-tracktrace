@@ -34,7 +34,7 @@ public class SongTableDynamoAdapter {
 
     public void writeSongToTable(SongItem songItem, Instant firstListened) {
         SongItemDDBItem songItemDDBItem = SongItemDDBItem.builder()
-                .trackId(songItem.getTrackID())
+                .trackId(songItem.getTrackId())
                 .trackName(songItem.getTrackName())
                 .timestamp(firstListened.getEpochSecond())
                 .build();
@@ -54,7 +54,7 @@ public class SongTableDynamoAdapter {
 
     public boolean songInTable(SongItem songItem) {
         Callable<SongItemDDBItem> readItemCallable = Retry.decorateCallable(
-                readItemRetryPolicy, () -> dynamoDBMapper.load(SongItemDDBItem.class, songItem.getTrackID()));
+                readItemRetryPolicy, () -> dynamoDBMapper.load(SongItemDDBItem.class, songItem.getTrackId()));
 
         SongItemDDBItem songItemDDBItem;
         try {

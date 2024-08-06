@@ -14,7 +14,7 @@ import lombok.NonNull;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(callSuper = true)
+@EqualsAndHashCode(callSuper = false)
 @DynamoDBTable(tableName = DDBItem.TABLE_NAME)
 public class AuthTokenDDBItem extends DDBItem {
     @NonNull

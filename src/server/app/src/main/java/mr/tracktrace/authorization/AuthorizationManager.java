@@ -101,7 +101,7 @@ public class AuthorizationManager {
         try {
             authorizationURI = getAuthURICallable.call();
         } catch (Exception ex) {
-            throw new RuntimeException(ex);
+            throw new RuntimeException("Get URI error: " + ex);
         }
 
         return authorizationURI;

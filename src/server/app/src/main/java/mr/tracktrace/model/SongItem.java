@@ -7,12 +7,12 @@ import se.michaelthelin.spotify.model_objects.miscellaneous.CurrentlyPlaying;
 @Data
 @Builder
 public class SongItem {
-    private String trackID;
+    private String trackId;
     private String trackName;
 
     public static SongItem fromCurrentlyPlaying(CurrentlyPlaying currentlyPlaying) {
         return SongItem.builder()
-                .trackID(currentlyPlaying.getItem().getUri())
+                .trackId(currentlyPlaying.getItem().getUri())
                 .trackName(currentlyPlaying.getItem().getName())
                 .build();
     }

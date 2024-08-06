@@ -64,4 +64,13 @@ tasks.test {
 
 tasks.jacocoTestReport {
     dependsOn(tasks.test) // tests are required to run before generating the report
+
+    classDirectories.setFrom(files(
+        fileTree("build/classes/java/main").matching {
+            exclude("**/ExitHandler.class")
+            exclude("**/TrackTrace.class")
+            exclude("**/TrackTraceModule.class")
+        }
+    ))
+
 }

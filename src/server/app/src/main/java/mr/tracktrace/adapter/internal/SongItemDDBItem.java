@@ -15,7 +15,7 @@ import mr.tracktrace.model.SongItem;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(callSuper = true)
+@EqualsAndHashCode(callSuper = false)
 @DynamoDBTable(tableName = DDBItem.TABLE_NAME)
 public class SongItemDDBItem extends DDBItem {
     @NonNull
@@ -32,7 +32,7 @@ public class SongItemDDBItem extends DDBItem {
 
     public SongItem toSongItem() {
         return SongItem.builder()
-                .trackID(trackId)
+                .trackId(trackId)
                 .trackName(trackName)
                 .build();
     }

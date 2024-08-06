@@ -6,6 +6,7 @@ import mr.tracktrace.adapter.SongTableDynamoAdapter;
 import mr.tracktrace.adapter.SpotifyAdapter;
 import mr.tracktrace.authorization.AuthorizationManager;
 import mr.tracktrace.model.SongItem;
+import mr.tracktrace.util.ExitHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,6 +28,7 @@ public class Service {
 
 
     private final AuthorizationManager authorizationManager;
+    private final ExitHandler exitHandler;
     private final ScheduledExecutorService scheduledExecutorService;
     private final SongTableDynamoAdapter songTableDynamoAdapter;
     private final SpotifyAdapter spotifyAdapter;
@@ -34,11 +36,13 @@ public class Service {
     @Inject
     public Service(
             AuthorizationManager authorizationManager,
+            ExitHandler exitHandler,
             ScheduledExecutorService scheduledExecutorService,
             SongTableDynamoAdapter songTableDynamoAdapter,
             SpotifyAdapter spotifyAdapter) {
 
         this.authorizationManager = authorizationManager;
+        this.exitHandler = exitHandler;
         this.scheduledExecutorService = scheduledExecutorService;
         this.songTableDynamoAdapter = songTableDynamoAdapter;
         this.spotifyAdapter = spotifyAdapter;
@@ -53,7 +57,7 @@ public class Service {
         scheduledExecutorService.scheduleWithFixedDelay(refreshToken(), AUTH_REFRESH_DELAY_IN_MINUTES, AUTH_REFRESH_DELAY_IN_MINUTES, TimeUnit.MINUTES);
     }
 
-    private Runnable mainTask() {
+    Runnable mainTask() {
         return () -> {
             try {
                 Optional<SongItem> currentSong = spotifyAdapter.getCurrentlyPlaying();
@@ -88,14 +92,14 @@ public class Service {
         };
     }
 
-    private Runnable refreshToken() {
+    Runnable refreshToken() {
         return () -> {
             try {
                 log.info("Refreshing auth...");
                 authorizationManager.refreshAuthorization();
             } catch (Exception ex) {
                 log.error("Refresh token error", ex);
-                System.exit(1);
+                exitHandler.exit(1);
             }
         };
     }
