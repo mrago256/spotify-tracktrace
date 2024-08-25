@@ -6,7 +6,6 @@ import mr.tracktrace.adapter.SongTableDynamoAdapter;
 import mr.tracktrace.adapter.SpotifyAdapter;
 import mr.tracktrace.authorization.AuthorizationManager;
 import mr.tracktrace.model.SongItem;
-import mr.tracktrace.util.ExitHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,7 +18,7 @@ import java.util.concurrent.TimeUnit;
 public class Service {
     private static final Logger log = LoggerFactory.getLogger(Service.class);
     private static final int SONG_CYCLE_DELAY_IN_SECONDS = 10;
-    private static final int AUTH_REFRESH_DELAY_IN_MINUTES = 50;
+    private static final int AUTH_REFRESH_DELAY_IN_MINUTES = 25;
     private static final int CYCLES_TO_SAVE_SONG = 5;
 
     private static SongItem lastKnownSong = SongItem.builder().build();
@@ -28,7 +27,6 @@ public class Service {
 
 
     private final AuthorizationManager authorizationManager;
-    private final ExitHandler exitHandler;
     private final ScheduledExecutorService scheduledExecutorService;
     private final SongTableDynamoAdapter songTableDynamoAdapter;
     private final SpotifyAdapter spotifyAdapter;
@@ -36,13 +34,11 @@ public class Service {
     @Inject
     public Service(
             AuthorizationManager authorizationManager,
-            ExitHandler exitHandler,
             ScheduledExecutorService scheduledExecutorService,
             SongTableDynamoAdapter songTableDynamoAdapter,
             SpotifyAdapter spotifyAdapter) {
 
         this.authorizationManager = authorizationManager;
-        this.exitHandler = exitHandler;
         this.scheduledExecutorService = scheduledExecutorService;
         this.songTableDynamoAdapter = songTableDynamoAdapter;
         this.spotifyAdapter = spotifyAdapter;
@@ -99,7 +95,6 @@ public class Service {
                 authorizationManager.refreshAuthorization();
             } catch (Exception ex) {
                 log.error("Refresh token error", ex);
-                exitHandler.exit(1);
             }
         };
     }

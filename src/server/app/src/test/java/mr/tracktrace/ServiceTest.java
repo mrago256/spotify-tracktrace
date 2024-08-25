@@ -42,9 +42,6 @@ public class ServiceTest {
     AuthorizationManager authorizationManager;
 
     @Mock
-    ExitHandler exitHandler;
-
-    @Mock
     ScheduledExecutorService scheduledExecutorService;
 
     @Mock
@@ -56,7 +53,7 @@ public class ServiceTest {
     @BeforeEach
     public void setup() {
         openMocks(this);
-        subject = new Service(authorizationManager, exitHandler, scheduledExecutorService, songTableDynamoAdapter, spotifyAdapter);
+        subject = new Service(authorizationManager, scheduledExecutorService, songTableDynamoAdapter, spotifyAdapter);
     }
 
     @Test
@@ -65,7 +62,7 @@ public class ServiceTest {
 
         verify(authorizationManager).initializeAuthorization();
         verify(scheduledExecutorService).scheduleWithFixedDelay(any(Runnable.class), eq(0L), eq(10L), eq(TimeUnit.SECONDS));
-        verify(scheduledExecutorService).scheduleWithFixedDelay(any(Runnable.class), eq(50L), eq(50L), eq(TimeUnit.MINUTES));
+        verify(scheduledExecutorService).scheduleWithFixedDelay(any(Runnable.class), eq(25L), eq(25L), eq(TimeUnit.MINUTES));
     }
 
     @Test
@@ -127,10 +124,9 @@ public class ServiceTest {
     }
 
     @Test
-    public void refreshAuth_exitsOnException() {
+    public void refreshAuthDoesNotThrow() {
         doThrow(new RuntimeException("Refresh auth failed")).when(authorizationManager).refreshAuthorization();
 
         assertDoesNotThrow(() -> subject.refreshToken().run());
-        verify(exitHandler).exit(1);
     }
 }

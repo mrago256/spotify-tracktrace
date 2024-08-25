@@ -11,9 +11,6 @@ import boto3
 songData = {}
 table_name = 'tracktrace'
 pathToSongs = 'data/'
-
-# TODO: maybe if track name and artist are the same, take lowest value
-
 jsonFiles = [jsonFile for jsonFile in os.listdir(pathToSongs) if jsonFile.endswith('.json')]
 
 for jsonFile in jsonFiles:
