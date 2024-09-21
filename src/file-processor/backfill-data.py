@@ -9,7 +9,9 @@ sys.path.append(libPath)
 import boto3
 
 songData = {}
-table_name = 'tracktrace'
+minTimestamps = {}
+# table_name = 'tracktrace'
+table_name = 'TestTrackTrace'
 pathToSongs = 'data/'
 jsonFiles = [jsonFile for jsonFile in os.listdir(pathToSongs) if jsonFile.endswith('.json')]
 
@@ -22,16 +24,21 @@ for jsonFile in jsonFiles:
     trackId = songEntry['spotify_track_uri']
     timestamp = datetime.datetime.strptime(songEntry['ts'], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc).timestamp()
     title = songEntry['master_metadata_track_name']
+    artist = songEntry['master_metadata_album_artist_name']
 
     if not trackId:
       continue
 
     if songEntry['reason_end'] == "trackdone" and songEntry['ms_played']  > 20_000:
-      if trackId in songData:
-        if timestamp < songData[trackId]['timestamp']:
-          songData[trackId]['timestamp'] = int(timestamp)
+      key = (title, artist)
+
+      if trackId not in songData:
+        songData[trackId] = {'songName': title, 'artistName': artist}
+
+      if key not in minTimestamps:
+        minTimestamps[key] = int(timestamp)
       else:
-        songData[trackId] = {'songName': title, 'timestamp': int(timestamp)}
+        minTimestamps[key] = min(minTimestamps[key], int(timestamp))
 
 print("Writing", len(songData), "songs to table")
 
@@ -40,9 +47,12 @@ table = dynamodb.Table(table_name)
 
 for key, value in songData.items():
   print("Writing:", key)
+  timestampKey = (value['songName'], value['artistName'])
+
   table.put_item(Item={
-    "trackId": key,
-    "timestamp": value['timestamp'],
+    "trackURI": key,
+    "timestamp": minTimestamps[timestampKey],
+    "artistName": value['artistName'],
     "trackName": value['songName']
     })
 

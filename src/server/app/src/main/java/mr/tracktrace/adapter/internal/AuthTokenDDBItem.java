@@ -18,7 +18,7 @@ import lombok.NonNull;
 @DynamoDBTable(tableName = DDBItem.TABLE_NAME)
 public class AuthTokenDDBItem extends DDBItem {
     @NonNull
-    @DynamoDBHashKey(attributeName = TRACK_ID_KEY)
+    @DynamoDBHashKey(attributeName = TRACK_URI_KEY)
     private String tokenName;
 
     @NonNull

@@ -80,7 +80,10 @@ public class Service {
 
                 if (songCycles >= CYCLES_TO_SAVE_SONG) {
                     log.info("Adding song: {}", currentSong.get().getTrackName());
-                    songTableDynamoAdapter.writeSongToTable(currentSong.get(), firstListened);
+                    Optional<Long> existingTimestamp = songTableDynamoAdapter.tryGetExistingTimestamp(currentSong.get());
+                    Instant timestampToWrite = existingTimestamp.isPresent() ? Instant.ofEpochSecond(existingTimestamp.get()) : firstListened;
+
+                    songTableDynamoAdapter.writeSongToTable(currentSong.get(), timestampToWrite);
                 }
             } catch (Exception ex) {
                 log.warn("Main task error", ex);

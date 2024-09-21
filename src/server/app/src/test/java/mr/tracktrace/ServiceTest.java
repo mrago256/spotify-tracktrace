@@ -4,7 +4,6 @@ import mr.tracktrace.adapter.SongTableDynamoAdapter;
 import mr.tracktrace.adapter.SpotifyAdapter;
 import mr.tracktrace.authorization.AuthorizationManager;
 import mr.tracktrace.model.SongItem;
-import mr.tracktrace.util.ExitHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,11 +27,11 @@ import static org.mockito.MockitoAnnotations.openMocks;
 @ExtendWith(MockitoExtension.class)
 public class ServiceTest {
     private static final SongItem songItem = SongItem.builder()
-            .trackId("someId")
+            .trackURI("someURI")
             .trackName("someName")
             .build();
     private static final SongItem otherSongItem = SongItem.builder()
-            .trackId("anotherId")
+            .trackURI("anotherURI")
             .trackName("anotherName")
             .build();
 
@@ -114,6 +113,24 @@ public class ServiceTest {
         }
 
         verify(songTableDynamoAdapter).writeSongToTable(eq(otherSongItem), any(Instant.class));
+    }
+
+    @Test
+    public void mainTask_writesSongToTableWithExistingTimestamp() {
+        SongItem duplicateSong = SongItem.builder()
+                .trackURI("moreURI")
+                .trackName("moreName")
+                .build();
+
+        when(spotifyAdapter.getCurrentlyPlaying()).thenReturn(Optional.of(duplicateSong));
+        when(songTableDynamoAdapter.songInTable(duplicateSong)).thenReturn(false);
+        when(songTableDynamoAdapter.tryGetExistingTimestamp(duplicateSong)).thenReturn(Optional.of(123L));
+
+        for (int i = 0; i <= 5; i++) {
+            subject.mainTask().run();
+        }
+
+        verify(songTableDynamoAdapter).writeSongToTable(eq(duplicateSong), any(Instant.class));
     }
 
     @Test
