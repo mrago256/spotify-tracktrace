@@ -1,7 +1,7 @@
 package mr.tracktrace.adapter.internal;
 
 public class DDBItem {
-    public static final String TABLE_NAME = "TestTrackTrace";
+    public static final String TABLE_NAME = "TrackTrace";
     public static final String GSI_NAME = "trackName-artistName-index";
 
     public static final String TRACK_URI_KEY = "trackURI";

@@ -10,8 +10,7 @@ import boto3
 
 songData = {}
 minTimestamps = {}
-# table_name = 'tracktrace'
-table_name = 'TestTrackTrace'
+table_name = 'tracktrace'
 pathToSongs = 'data/'
 jsonFiles = [jsonFile for jsonFile in os.listdir(pathToSongs) if jsonFile.endswith('.json')]
 
