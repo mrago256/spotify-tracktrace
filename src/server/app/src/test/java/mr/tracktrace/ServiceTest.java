@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import se.michaelthelin.spotify.exceptions.detailed.UnauthorizedException;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -131,6 +132,25 @@ public class ServiceTest {
         }
 
         verify(songTableDynamoAdapter).writeSongToTable(eq(duplicateSong), any(Instant.class));
+    }
+
+    @Test
+    public void mainTask_attemptsAuthRefreshOnException() {
+        RuntimeException exception = new RuntimeException("Auth lost", new UnauthorizedException());
+        when(spotifyAdapter.getCurrentlyPlaying()).thenThrow(exception);
+
+        subject.mainTask().run();
+
+        verify(authorizationManager).refreshAuthorization();
+    }
+
+    @Test
+    public void mainTask_authRefreshAttemptFailCaught() {
+        RuntimeException exception = new RuntimeException("Auth lost", new UnauthorizedException());
+        when(spotifyAdapter.getCurrentlyPlaying()).thenThrow(exception);
+        doThrow(new RuntimeException("Auth refresh failed")).when(authorizationManager).refreshAuthorization();
+
+        assertDoesNotThrow(() -> subject.mainTask().run());
     }
 
     @Test

@@ -8,6 +8,7 @@ import mr.tracktrace.authorization.AuthorizationManager;
 import mr.tracktrace.model.SongItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.michaelthelin.spotify.exceptions.detailed.UnauthorizedException;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -87,6 +88,15 @@ public class Service {
                 }
             } catch (Exception ex) {
                 log.warn("Main task error", ex);
+
+                if (ex.getCause() instanceof UnauthorizedException) {
+                    log.info("Attempting authorization refresh");
+                    try {
+                        authorizationManager.refreshAuthorization();
+                    } catch (Exception exception) {
+                        log.warn("Authorization refresh attempt failed", exception);
+                    }
+                }
             }
         };
     }

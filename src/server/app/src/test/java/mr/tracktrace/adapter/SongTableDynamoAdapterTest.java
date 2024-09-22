@@ -122,6 +122,7 @@ public class SongTableDynamoAdapterTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     public void tryGetExistingTimestamp() {
         PaginatedQueryList<SongItemDDBItem> mockResponse = (PaginatedQueryList<SongItemDDBItem>) mock(PaginatedQueryList.class);
 
@@ -132,6 +133,7 @@ public class SongTableDynamoAdapterTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     public void tryGetExistingTimestampReturnsEmpty() {
         PaginatedQueryList<SongItemDDBItem> mockResponse = (PaginatedQueryList<SongItemDDBItem>) mock(PaginatedQueryList.class);
 
