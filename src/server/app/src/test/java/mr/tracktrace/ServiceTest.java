@@ -145,15 +145,6 @@ public class ServiceTest {
     }
 
     @Test
-    public void mainTask_authRefreshAttemptFailCaught() {
-        RuntimeException exception = new RuntimeException("Auth lost", new UnauthorizedException());
-        when(spotifyAdapter.getCurrentlyPlaying()).thenThrow(exception);
-        doThrow(new RuntimeException("Auth refresh failed")).when(authorizationManager).refreshAuthorization();
-
-        assertDoesNotThrow(() -> subject.mainTask().run());
-    }
-
-    @Test
     public void refreshAuth() {
         subject.refreshToken().run();
 

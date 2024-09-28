@@ -91,11 +91,7 @@ public class Service {
 
                 if (ex.getCause() instanceof UnauthorizedException) {
                     log.info("Attempting authorization refresh");
-                    try {
-                        authorizationManager.refreshAuthorization();
-                    } catch (Exception exception) {
-                        log.warn("Authorization refresh attempt failed", exception);
-                    }
+                    refreshToken().run();
                 }
             }
         };
