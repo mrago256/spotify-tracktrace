@@ -2,13 +2,13 @@ package mr.tracktrace.adapter.internal;
 
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBAttribute;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBHashKey;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBRangeKey;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTable;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import lombok.NonNull;
 
 @Data
 @Builder
@@ -17,15 +17,15 @@ import lombok.NonNull;
 @EqualsAndHashCode(callSuper = false)
 @DynamoDBTable(tableName = DDBItem.TABLE_NAME)
 public class AuthTokenDDBItem extends DDBItem {
-    @NonNull
-    @DynamoDBHashKey(attributeName = TRACK_URI_KEY)
+    @DynamoDBHashKey(attributeName = TRACK_NAME_KEY)
     private String tokenName;
 
-    @NonNull
-    @DynamoDBAttribute(attributeName = TRACK_NAME_KEY)
-    private String authToken;
+    @DynamoDBRangeKey(attributeName = TRACK_ARTIST_KEY)
+    private String tokenType;
 
-    @NonNull
+    @DynamoDBAttribute(attributeName = "token")
+    private String token;
+
     @DynamoDBAttribute(attributeName = TIMESTAMP_KEY)
     private Long timestamp;
 }

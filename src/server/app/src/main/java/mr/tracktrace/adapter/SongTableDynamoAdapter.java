@@ -14,8 +14,6 @@ import mr.tracktrace.adapter.internal.SongItemDDBItem;
 import mr.tracktrace.model.SongItem;
 
 import java.time.Instant;
-import java.util.NoSuchElementException;
-import java.util.Optional;
 import java.util.concurrent.Callable;
 
 @Singleton
@@ -38,7 +36,6 @@ public class SongTableDynamoAdapter {
 
     public void writeSongToTable(SongItem songItem, Instant firstListened) {
         SongItemDDBItem songItemDDBItem = SongItemDDBItem.builder()
-                .trackURI(songItem.getTrackURI())
                 .trackName(songItem.getTrackName())
                 .artistName(songItem.getArtistName())
                 .timestamp(firstListened.getEpochSecond())
@@ -50,7 +47,8 @@ public class SongTableDynamoAdapter {
     public void writeAccessTokenToTable(String token) {
         AuthTokenDDBItem authTokenDDBItem = AuthTokenDDBItem.builder()
                 .tokenName("auth-token")
-                .authToken(token)
+                .tokenType("auth")
+                .token(token)
                 .timestamp(Instant.now().getEpochSecond())
                 .build();
 
@@ -58,46 +56,25 @@ public class SongTableDynamoAdapter {
     }
 
     public boolean songInTable(SongItem songItem) {
-        Callable<SongItemDDBItem> readItemCallable = Retry.decorateCallable(
-                readItemRetryPolicy, () -> dynamoDBMapper.load(SongItemDDBItem.class, songItem.getTrackURI()));
-
-        SongItemDDBItem songItemDDBItem;
-        try {
-            songItemDDBItem = readItemCallable.call();
-        } catch (Exception ex) {
-            throw new RuntimeException(ex);
-        }
-
-        return songItemDDBItem != null;
-    }
-
-    public Optional<Long> tryGetExistingTimestamp(SongItem songItem) {
         SongItemDDBItem queryItem = SongItemDDBItem.builder()
                 .trackName(songItem.getTrackName())
                 .artistName(songItem.getArtistName())
                 .build();
 
         DynamoDBQueryExpression<SongItemDDBItem> queryExpression = new DynamoDBQueryExpression<SongItemDDBItem>()
-                .withHashKeyValues(queryItem)
-                .withIndexName(DDBItem.GSI_NAME)
-                .withConsistentRead(false);
+                .withHashKeyValues(queryItem);
 
-        Callable<PaginatedQueryList<SongItemDDBItem>> getExistingSongItemCallable = Retry.decorateCallable(
+        Callable<PaginatedQueryList<SongItemDDBItem>> queryCallable = Retry.decorateCallable(
                 readItemRetryPolicy, () -> dynamoDBMapper.query(SongItemDDBItem.class, queryExpression));
 
         PaginatedQueryList<SongItemDDBItem> result;
         try {
-            result = getExistingSongItemCallable.call();
-        } catch (Exception ex) {
+            result = queryCallable.call();
+        } catch(Exception ex) {
             throw new RuntimeException(ex);
         }
 
-        try {
-            SongItemDDBItem songItemDDBItem = result.getFirst();
-            return Optional.of(songItemDDBItem.getTimestamp());
-        } catch (NoSuchElementException ex) {
-            return Optional.empty();
-        }
+        return !result.isEmpty();
     }
 
     private void saveItemToTable(DDBItem ddbItem) {

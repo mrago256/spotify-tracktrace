@@ -60,7 +60,7 @@ public class Service {
                 Optional<SongItem> currentSong = spotifyAdapter.getCurrentlyPlaying();
                 if (currentSong.isEmpty()) {
                     log.info("No song playing");
-                    return; // for now return early if no song playing
+                    return; // return early if no song playing
                 }
 
                 if (songTableDynamoAdapter.songInTable(currentSong.get())) {
@@ -81,10 +81,7 @@ public class Service {
 
                 if (songCycles >= CYCLES_TO_SAVE_SONG) {
                     log.info("Adding song: {}", currentSong.get().getTrackName());
-                    Optional<Long> existingTimestamp = songTableDynamoAdapter.tryGetExistingTimestamp(currentSong.get());
-                    Instant timestampToWrite = existingTimestamp.isPresent() ? Instant.ofEpochSecond(existingTimestamp.get()) : firstListened;
-
-                    songTableDynamoAdapter.writeSongToTable(currentSong.get(), timestampToWrite);
+                    songTableDynamoAdapter.writeSongToTable(currentSong.get(), firstListened);
                 }
             } catch (Exception ex) {
                 log.warn("Main task error", ex);

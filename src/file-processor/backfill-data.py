@@ -31,13 +31,10 @@ for jsonFile in jsonFiles:
     if songEntry['reason_end'] == "trackdone" and songEntry['ms_played']  > 20_000:
       key = (title, artist)
 
-      if trackId not in songData:
-        songData[trackId] = {'songName': title, 'artistName': artist}
-
-      if key not in minTimestamps:
-        minTimestamps[key] = int(timestamp)
+      if key not in songData:
+        songData[key] = {'timestamp': int(timestamp)}
       else:
-        minTimestamps[key] = min(minTimestamps[key], int(timestamp))
+        songData[key]['timestamp'] = int(min(songData[key]['timestamp'], timestamp))
 
 print("Writing", len(songData), "songs to table")
 
@@ -46,14 +43,11 @@ table = dynamodb.Table(table_name)
 
 for key, value in songData.items():
   print("Writing:", key)
-  timestampKey = (value['songName'], value['artistName'])
 
   table.put_item(Item={
-    "trackURI": key,
-    "timestamp": minTimestamps[timestampKey],
-    "artistName": value['artistName'],
-    "trackName": value['songName']
-    })
+    "trackName": key[0],
+    "artistName": key[1],
+    "timestamp": value['timestamp']
+  })
 
   time.sleep(0.05)
-

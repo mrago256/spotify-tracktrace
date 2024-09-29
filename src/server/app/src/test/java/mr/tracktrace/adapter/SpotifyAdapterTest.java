@@ -41,7 +41,6 @@ public class SpotifyAdapterTest {
     @Test
     public void getCurrentlyPlaying() throws Exception {
         SongItem expectedCurrentlyPlaying = SongItem.builder()
-                .trackURI("someURI")
                 .trackName("someName")
                 .artistName("someArtist")
                 .build();
@@ -54,11 +53,11 @@ public class SpotifyAdapterTest {
 
         GetTrackRequest.Builder trackBuilderMock = mock(GetTrackRequest.Builder.class);
         when(trackBuilderMock.build()).thenReturn(mock(GetTrackRequest.class));
-        when(spotifyApi.getTrack("someURI")).thenReturn(trackBuilderMock);
+        when(spotifyApi.getTrack("someId")).thenReturn(trackBuilderMock);
         when(trackBuilderMock.build().execute()).thenReturn(trackMock);
 
         IPlaylistItem itemMock = mock(IPlaylistItem.class);
-        when(itemMock.getUri()).thenReturn("someURI");
+        when(itemMock.getId()).thenReturn("someId");
         when(itemMock.getName()).thenReturn("someName");
 
         CurrentlyPlaying currentlyPlayingMock = mock(CurrentlyPlaying.class);
@@ -98,7 +97,8 @@ public class SpotifyAdapterTest {
         when(spotifyApi.getUsersCurrentlyPlayingTrack()).thenReturn(builderMock);
         doThrow(new IOException("Spotify call failed")).when(requestMock).execute();
 
-        assertThrows(RuntimeException.class, () -> subject.getCurrentlyPlaying());
+        Exception exception = assertThrows(RuntimeException.class, () -> subject.getCurrentlyPlaying());
+        assertTrue(exception.getMessage().contains("Spotify call failed"));
     }
 
     @Test
@@ -109,7 +109,7 @@ public class SpotifyAdapterTest {
         IPlaylistItem itemMock = mock(IPlaylistItem.class);
 
         when(currentlyPlayingMock.getItem()).thenReturn(itemMock);
-        when(itemMock.getUri()).thenReturn("someURI");
+        when(itemMock.getId()).thenReturn("someId");
         when(itemMock.getName()).thenReturn("someName");
 
         when(builderMock.build()).thenReturn(requestMock);
@@ -120,9 +120,10 @@ public class SpotifyAdapterTest {
         GetTrackRequest.Builder trackBuilderMock = mock(GetTrackRequest.Builder.class);
 
         when(trackBuilderMock.build()).thenReturn(trackRequestMock);
-        when(spotifyApi.getTrack("someURI")).thenReturn(trackBuilderMock);
+        when(spotifyApi.getTrack("someId")).thenReturn(trackBuilderMock);
         doThrow(new RuntimeException("Get track failed")).when(trackRequestMock).execute();
 
-        assertThrows(RuntimeException.class, () -> subject.getCurrentlyPlaying());
+        Exception exception = assertThrows(RuntimeException.class, () -> subject.getCurrentlyPlaying());
+        assertTrue(exception.getMessage().contains("Get track failed"));
     }
 }

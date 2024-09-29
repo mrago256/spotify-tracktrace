@@ -54,7 +54,7 @@ public class SpotifyAdapter {
         }
 
         SongItem songItem = SongItem.fromCurrentlyPlaying(currentlyPlaying);
-        songItem.setArtistName(getArtistFromTrackID(SongItem.getTrackId(songItem)));
+        songItem.setArtistName(getArtistFromTrackID(currentlyPlaying.getItem().getId()));
 
         return Optional.of(songItem);
     }

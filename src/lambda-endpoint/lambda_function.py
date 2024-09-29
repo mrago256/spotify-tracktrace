@@ -3,56 +3,60 @@ import json
 import os
 import sys
 
-libPath = os.path.dirname(os.path.abspath(__file__)) + '/lib'
-sys.path.append(libPath)
+lib_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib')
+sys.path.append(lib_path)
 import spotipy
 
-table_name = 'tracktrace'
-unauthorizedRequestResponse = {
+TABLE_NAME = 'tracktrace'
+UNAUTHORIZED_RESPONSE = {
   'statusCode': 401,
   'body': json.dumps('Unauthorized Request')
 }
 
-def vaildQueryKey(presentedKey):
-  return os.environ['expectedSecurityKey'] == presentedKey
+def is_valid_query_key(presented_key):
+  return os.environ['expectedSecurityKey'] == presented_key
 
-def getAuthToken(dynamoTable):
-  response = dynamoTable.get_item(Key={'trackId': 'auth-token'})
+def get_auth_token(dynamo_table):
+  response = dynamo_table.get_item(
+    Key={
+      'trackName': 'auth-token',
+      'artistName': 'auth'
+    }
+  )
 
-  return response['Item']['trackName']
+  return response['Item']['token']
 
-def getSongFromTable(dynamoTable, trackId):
-  response = dynamoTable.get_item(Key={'trackId': trackId})
-  if 'Item' not in response:
-    return None
+def get_song_from_table(dynamo_table, current_track):
+  track_name = current_track.get('name')
+  artist_name = current_track['artists'][0].get('name')
 
-  return response['Item']
+  response = dynamo_table.get_item(
+    Key={
+      'trackName': track_name,
+      'artistName': artist_name
+    }
+  )
 
-def getCurrentTrackId(sp):
-  response = sp.current_playback()
-  if not response:
-    return None
+  return response.get('Item')
 
-  return response['item']['uri']
+def get_current_track(spotify_client):
+  response = spotify_client.current_playback()
+  return response.get('item') if response else None
 
 def lambda_handler(event, context):
-  if 'queryStringParameters' not in event:
-    return unauthorizedRequestResponse
-  if 'key' not in event['queryStringParameters']:
-    return unauthorizedRequestResponse
+  query_params = event.get('queryStringParameters', {})
+  presented_query_key = query_params.get('key')
 
-  presentedQueryKey = event['queryStringParameters']['key']
-
-  if not vaildQueryKey(presentedQueryKey):
-    return unauthorizedRequestResponse
+  if not presented_query_key or not is_valid_query_key(presented_query_key):
+    return UNAUTHORIZED_RESPONSE
 
   dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
-  table = dynamodb.Table(table_name)
-  sp = spotipy.Spotify(auth=getAuthToken(table))
+  table = dynamodb.Table(TABLE_NAME)
+  sp = spotipy.Spotify(auth=get_auth_token(table))
 
-  currentTrackId = getCurrentTrackId(sp)
+  current_track = get_current_track(sp)
 
-  if not currentTrackId:
+  if not current_track:
     return {
       'statusCode': 200,
       'body': json.dumps('No track playing'),
@@ -61,9 +65,9 @@ def lambda_handler(event, context):
       }
     }
 
-  currentlyPlayingFromTable = getSongFromTable(table, currentTrackId)
+  song_from_table = get_song_from_table(table, current_track)
 
-  if not currentlyPlayingFromTable:
+  if not song_from_table:
     return {
       'statusCode': 200,
       'body': json.dumps('Song not in table'),
@@ -72,14 +76,14 @@ def lambda_handler(event, context):
       }
     }
 
-  responseData = {
-    'timestamp': str(currentlyPlayingFromTable['timestamp']),
-    'trackName': str(currentlyPlayingFromTable['trackName'])
+  response_data = {
+    'timestamp': str(song_from_table['timestamp']),
+    'trackName': str(song_from_table['trackName'])
   }
 
   return {
     'statusCode': 200,
-    'body': json.dumps(responseData),
+    'body': json.dumps(response_data),
     'headers': {
       'Content-Type': 'application/json'
     }

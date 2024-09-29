@@ -16,14 +16,12 @@ public class SongItemTest {
     @Test
     public void songItemFromDDBItem() {
         SongItemDDBItem songItemDDBItem = SongItemDDBItem.builder()
-                .trackURI("someURI")
                 .trackName("someName")
                 .artistName("someArtist")
                 .timestamp(0L)
                 .build();
 
         SongItem expectedSongItem = SongItem.builder()
-                .trackURI("someURI")
                 .trackName("someName")
                 .artistName("someArtist")
                 .build();
@@ -37,24 +35,12 @@ public class SongItemTest {
         IPlaylistItem itemMock = mock(IPlaylistItem.class);
 
         when(currentlyPlayingMock.getItem()).thenReturn(itemMock);
-        when(itemMock.getUri()).thenReturn("someURI");
         when(itemMock.getName()).thenReturn("someName");
 
         SongItem expectedSongItem = SongItem.builder()
-                .trackURI("someURI")
                 .trackName("someName")
                 .build();
 
         assertEquals(expectedSongItem, SongItem.fromCurrentlyPlaying(currentlyPlayingMock));
-    }
-
-    @Test
-    public void getTrackId() {
-        SongItem songItem = SongItem.builder()
-                .trackURI("spotify:track:someId")
-                .build();
-        String expectedId = "someId";
-
-        assertEquals(expectedId, SongItem.getTrackId(songItem));
     }
 }

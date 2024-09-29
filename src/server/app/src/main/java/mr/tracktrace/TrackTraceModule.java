@@ -24,8 +24,8 @@ public class TrackTraceModule extends AbstractModule {
     SpotifyApi getSpotifyApiClient() {
         URI redirectURI = SpotifyHttpManager.makeUri("http://localhost:8080/");
         return SpotifyApi.builder()
-                .setClientId("someId")
-                .setClientSecret("someSecret")
+                .setClientId(System.getenv("spotifyClientId"))
+                .setClientSecret(System.getenv("spotifyClientSecret"))
                 .setRedirectUri(redirectURI)
                 .build();
     }

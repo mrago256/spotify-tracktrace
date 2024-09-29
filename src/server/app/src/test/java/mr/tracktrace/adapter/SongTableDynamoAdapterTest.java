@@ -13,10 +13,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
-import java.util.NoSuchElementException;
-import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -33,15 +30,8 @@ public class SongTableDynamoAdapterTest {
     private SongTableDynamoAdapter subject;
 
     private static final SongItem songItem = SongItem.builder()
-            .trackURI("someURI")
             .trackName("songName")
             .artistName("someArtist")
-            .build();
-    private static final SongItemDDBItem songItemDDBItem = SongItemDDBItem.builder()
-            .trackURI("someURI")
-            .trackName("songName")
-            .artistName("someArtist")
-            .timestamp(Instant.now().getEpochSecond())
             .build();
 
     @Mock
@@ -57,7 +47,6 @@ public class SongTableDynamoAdapterTest {
     public void writeSongToTable() {
         Instant now = Instant.now();
         SongItemDDBItem expectedSongItemDDBItem = SongItemDDBItem.builder()
-                .trackURI(songItem.getTrackURI())
                 .trackName(songItem.getTrackName())
                 .artistName(songItem.getArtistName())
                 .timestamp(now.getEpochSecond())
@@ -73,7 +62,8 @@ public class SongTableDynamoAdapterTest {
         Instant now = Instant.now();
         doThrow(new RuntimeException("Dynamo save failed")).when(mapper).save(any(DDBItem.class));
 
-        assertThrows(RuntimeException.class, () -> subject.writeSongToTable(songItem, now));
+        Exception exception = assertThrows(RuntimeException.class, () -> subject.writeSongToTable(songItem, now));
+        assertTrue(exception.getMessage().contains("Dynamo save failed"));
     }
 
     @Test
@@ -81,7 +71,8 @@ public class SongTableDynamoAdapterTest {
         Instant now = Instant.now();
         AuthTokenDDBItem expectedAuthTokenDDBItem = AuthTokenDDBItem.builder()
                 .tokenName("auth-token")
-                .authToken("someToken")
+                .tokenType("auth")
+                .token("someToken")
                 .timestamp(now.getEpochSecond())
                 .build();
 
@@ -94,59 +85,37 @@ public class SongTableDynamoAdapterTest {
     public void writeAccessTokenToTableThrows() {
         doThrow(new RuntimeException("Dynamo save failed")).when(mapper).save(any(DDBItem.class));
 
-        assertThrows(RuntimeException.class, () -> subject.writeAccessTokenToTable("someToken"));
+        Exception exception = assertThrows(RuntimeException.class, () -> subject.writeAccessTokenToTable("someToken"));
+        assertTrue(exception.getMessage().contains("Dynamo save failed"));
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     public void songInTable() {
-        SongItem songItem = SongItem.fromSongItemDDBItem(songItemDDBItem);
+        PaginatedQueryList<SongItemDDBItem> mockResponse = (PaginatedQueryList<SongItemDDBItem>) mock(PaginatedQueryList.class);
 
-        when(mapper.load(SongItemDDBItem.class, "someURI"))
-                .thenReturn(songItemDDBItem);
+        when(mapper.query(eq(SongItemDDBItem.class), any())).thenReturn(mockResponse);
+        when(mockResponse.isEmpty()).thenReturn(false);
 
         assertTrue(subject.songInTable(songItem));
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     public void songNotInTable() {
-        when(mapper.load(SongItemDDBItem.class, "someURI")).thenReturn(null);
+        PaginatedQueryList<SongItemDDBItem> mockResponse = (PaginatedQueryList<SongItemDDBItem>) mock(PaginatedQueryList.class);
+
+        when(mapper.query(eq(SongItemDDBItem.class), any())).thenReturn(mockResponse);
+        when(mockResponse.isEmpty()).thenReturn(true);
 
         assertFalse(subject.songInTable(songItem));
     }
 
     @Test
     public void songInTableThrows() {
-        when(mapper.load(SongItemDDBItem.class, "songURI")).thenThrow(new RuntimeException("Dynamo read failed"));
-
-        assertThrows(RuntimeException.class, () -> subject.songInTable(songItem));
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    public void tryGetExistingTimestamp() {
-        PaginatedQueryList<SongItemDDBItem> mockResponse = (PaginatedQueryList<SongItemDDBItem>) mock(PaginatedQueryList.class);
-
-        when(mapper.query(eq(SongItemDDBItem.class), any())).thenReturn(mockResponse);
-        when(mockResponse.getFirst()).thenReturn(songItemDDBItem);
-
-        subject.tryGetExistingTimestamp(songItem);
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    public void tryGetExistingTimestampReturnsEmpty() {
-        PaginatedQueryList<SongItemDDBItem> mockResponse = (PaginatedQueryList<SongItemDDBItem>) mock(PaginatedQueryList.class);
-
-        when(mapper.query(eq(SongItemDDBItem.class), any())).thenReturn(mockResponse);
-        when(mockResponse.getFirst()).thenThrow(new NoSuchElementException());
-
-        assertEquals(subject.tryGetExistingTimestamp(songItem), Optional.empty());
-    }
-
-    @Test
-    public void tryGetExistingThrows() {
         when(mapper.query(any(), any())).thenThrow(new RuntimeException("Dynamo query failed"));
 
-        assertThrows(RuntimeException.class, () -> subject.tryGetExistingTimestamp(songItem));
+        Exception exception = assertThrows(RuntimeException.class, () -> subject.songInTable(songItem));
+        assertTrue(exception.getMessage().contains("Dynamo query failed"));
     }
 }
