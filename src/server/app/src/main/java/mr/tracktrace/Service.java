@@ -20,12 +20,12 @@ public class Service {
     private static final Logger log = LoggerFactory.getLogger(Service.class);
     private static final int SONG_CYCLE_DELAY_IN_SECONDS = 10;
     private static final int AUTH_REFRESH_DELAY_IN_MINUTES = 25;
-    private static final int CYCLES_TO_SAVE_SONG = 5;
+    private static final int FULL_LISTEN_CYCLES = 5;
 
     private static SongItem lastKnownSong = SongItem.builder().build();
-    private static Instant firstListened;
-    private static int songCycles;
-
+    private static Instant firstListened = Instant.now();
+    private static int songCycles = 0;
+    private static boolean itemUpdated = false;
 
     private final AuthorizationManager authorizationManager;
     private final ScheduledExecutorService scheduledExecutorService;
@@ -60,28 +60,34 @@ public class Service {
                 Optional<SongItem> currentSong = spotifyAdapter.getCurrentlyPlaying();
                 if (currentSong.isEmpty()) {
                     log.info("No song playing");
-                    return; // return early if no song playing
-                }
-
-                if (songTableDynamoAdapter.songInTable(currentSong.get())) {
-                    log.info("Song in table");
-                    return; // song has already been listened to before
+                    return;
                 }
 
                 if (!lastKnownSong.equals(currentSong.get())) {
                     log.info("Current song different than last song");
-                    songCycles = 0;
-                    lastKnownSong = currentSong.get();
-                    firstListened = Instant.now();
+                    resetState(currentSong.get());
+                    return;
+                }
+
+                if (songTableDynamoAdapter.songInTable(currentSong.get())) {
+                    log.info("Song in table");
+                    songCycles++;
+
+                    if (songCycles >= FULL_LISTEN_CYCLES && !itemUpdated) {
+                        log.info("Incrementing listen count");
+                        songTableDynamoAdapter.incrementSongListenCount(currentSong.get());
+                        itemUpdated = true;
+                    }
                     return;
                 }
 
                 log.info("Increment");
                 songCycles++;
 
-                if (songCycles >= CYCLES_TO_SAVE_SONG) {
+                if (songCycles >= FULL_LISTEN_CYCLES) {
                     log.info("Adding song: {}", currentSong.get().getTrackName());
                     songTableDynamoAdapter.writeSongToTable(currentSong.get(), firstListened);
+                    itemUpdated = true;
                 }
             } catch (Exception ex) {
                 log.warn("Main task error", ex);
@@ -103,5 +109,12 @@ public class Service {
                 log.error("Refresh token error", ex);
             }
         };
+    }
+
+    private void resetState(SongItem songItem) {
+        songCycles = 0;
+        itemUpdated = false;
+        lastKnownSong = songItem;
+        firstListened = Instant.now();
     }
 }

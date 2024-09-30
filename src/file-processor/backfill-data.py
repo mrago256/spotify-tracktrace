@@ -28,13 +28,14 @@ for jsonFile in jsonFiles:
     if not trackId:
       continue
 
-    if songEntry['reason_end'] == "trackdone" and songEntry['ms_played']  > 20_000:
+    if songEntry['reason_end'] == "trackdone" and songEntry['ms_played']  > 20_000 or songEntry['ms_played'] > 150_000:
       key = (title, artist)
 
       if key not in songData:
-        songData[key] = {'timestamp': int(timestamp)}
+        songData[key] = {'timestamp': int(timestamp), 'listens': 1}
       else:
         songData[key]['timestamp'] = int(min(songData[key]['timestamp'], timestamp))
+        songData[key]['listens'] += 1
 
 print("Writing", len(songData), "songs to table")
 
@@ -45,9 +46,10 @@ for key, value in songData.items():
   print("Writing:", key)
 
   table.put_item(Item={
-    "trackName": key[0],
-    "artistName": key[1],
-    "timestamp": value['timestamp']
+    'trackName': key[0],
+    'artistName': key[1],
+    'timestamp': value['timestamp'],
+    'listens': value['listens']
   })
 
   time.sleep(0.05)

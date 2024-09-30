@@ -14,6 +14,7 @@ import mr.tracktrace.adapter.internal.SongItemDDBItem;
 import mr.tracktrace.model.SongItem;
 
 import java.time.Instant;
+import java.util.NoSuchElementException;
 import java.util.concurrent.Callable;
 
 @Singleton
@@ -39,6 +40,18 @@ public class SongTableDynamoAdapter {
                 .trackName(songItem.getTrackName())
                 .artistName(songItem.getArtistName())
                 .timestamp(firstListened.getEpochSecond())
+                .listens(1)
+                .build();
+
+        saveItemToTable(songItemDDBItem);
+    }
+
+    public void incrementSongListenCount(SongItem songItem) {
+        int newListenCount = getSongListenCount(songItem) + 1;
+        SongItemDDBItem songItemDDBItem = SongItemDDBItem.builder()
+                .trackName(songItem.getTrackName())
+                .artistName(songItem.getArtistName())
+                .listens(newListenCount)
                 .build();
 
         saveItemToTable(songItemDDBItem);
@@ -56,6 +69,22 @@ public class SongTableDynamoAdapter {
     }
 
     public boolean songInTable(SongItem songItem) {
+        try {
+            getSongItemFromTable(songItem);
+        } catch (NoSuchElementException ex) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private int getSongListenCount(SongItem songItem) {
+        SongItemDDBItem songItemDDBItem = getSongItemFromTable(songItem);
+
+        return songItemDDBItem.getListens();
+    }
+
+    private SongItemDDBItem getSongItemFromTable(SongItem songItem) {
         SongItemDDBItem queryItem = SongItemDDBItem.builder()
                 .trackName(songItem.getTrackName())
                 .artistName(songItem.getArtistName())
@@ -74,7 +103,7 @@ public class SongTableDynamoAdapter {
             throw new RuntimeException(ex);
         }
 
-        return !result.isEmpty();
+        return result.getFirst();
     }
 
     private void saveItemToTable(DDBItem ddbItem) {

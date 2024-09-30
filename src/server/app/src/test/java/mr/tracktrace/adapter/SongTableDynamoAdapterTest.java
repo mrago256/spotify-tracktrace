@@ -13,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.util.NoSuchElementException;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -30,7 +31,7 @@ public class SongTableDynamoAdapterTest {
     private SongTableDynamoAdapter subject;
 
     private static final SongItem songItem = SongItem.builder()
-            .trackName("songName")
+            .trackName("someName")
             .artistName("someArtist")
             .build();
 
@@ -50,6 +51,7 @@ public class SongTableDynamoAdapterTest {
                 .trackName(songItem.getTrackName())
                 .artistName(songItem.getArtistName())
                 .timestamp(now.getEpochSecond())
+                .listens(1)
                 .build();
 
         subject.writeSongToTable(songItem, now);
@@ -95,7 +97,6 @@ public class SongTableDynamoAdapterTest {
         PaginatedQueryList<SongItemDDBItem> mockResponse = (PaginatedQueryList<SongItemDDBItem>) mock(PaginatedQueryList.class);
 
         when(mapper.query(eq(SongItemDDBItem.class), any())).thenReturn(mockResponse);
-        when(mockResponse.isEmpty()).thenReturn(false);
 
         assertTrue(subject.songInTable(songItem));
     }
@@ -106,7 +107,7 @@ public class SongTableDynamoAdapterTest {
         PaginatedQueryList<SongItemDDBItem> mockResponse = (PaginatedQueryList<SongItemDDBItem>) mock(PaginatedQueryList.class);
 
         when(mapper.query(eq(SongItemDDBItem.class), any())).thenReturn(mockResponse);
-        when(mockResponse.isEmpty()).thenReturn(true);
+        when(mockResponse.getFirst()).thenThrow(new NoSuchElementException());
 
         assertFalse(subject.songInTable(songItem));
     }
@@ -117,5 +118,22 @@ public class SongTableDynamoAdapterTest {
 
         Exception exception = assertThrows(RuntimeException.class, () -> subject.songInTable(songItem));
         assertTrue(exception.getMessage().contains("Dynamo query failed"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void incrementSongListenCount() {
+        SongItemDDBItem expectedUpdateItem = SongItemDDBItem.builder()
+                .trackName("someName")
+                .artistName("someArtist")
+                .listens(2)
+                .build();
+
+        PaginatedQueryList<SongItemDDBItem> mockResponse = (PaginatedQueryList<SongItemDDBItem>) mock(PaginatedQueryList.class);
+        when(mapper.query(eq(SongItemDDBItem.class), any())).thenReturn(mockResponse);
+        when(mockResponse.getFirst()).thenReturn(SongItemDDBItem.builder().trackName("someName").artistName("someArtist").timestamp(0L).listens(1).build());
+
+        subject.incrementSongListenCount(songItem);
+        verify(mapper).save(expectedUpdateItem);
     }
 }

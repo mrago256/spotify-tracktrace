@@ -78,7 +78,8 @@ def lambda_handler(event, context):
 
   response_data = {
     'timestamp': str(song_from_table['timestamp']),
-    'trackName': str(song_from_table['trackName'])
+    'trackName': str(song_from_table['trackName']),
+    'listenCount': str(song_from_table['listens'])
   }
 
   return {

@@ -92,17 +92,6 @@ public class ServiceTest {
     }
 
     @Test
-    public void mainTask_incrementSong() {
-        when(spotifyAdapter.getCurrentlyPlaying()).thenReturn(Optional.of(songItem));
-        when(songTableDynamoAdapter.songInTable(songItem)).thenReturn(false);
-
-        subject.mainTask().run();
-        subject.mainTask().run();
-
-        verifyNoMoreInteractions(songTableDynamoAdapter, spotifyAdapter);
-    }
-
-    @Test
     public void mainTask_writeNewSongToTable() {
         when(spotifyAdapter.getCurrentlyPlaying()).thenReturn(Optional.of(otherSongItem));
         when(songTableDynamoAdapter.songInTable(otherSongItem)).thenReturn(false);
@@ -112,6 +101,18 @@ public class ServiceTest {
         }
 
         verify(songTableDynamoAdapter).writeSongToTable(eq(otherSongItem), any(Instant.class));
+    }
+
+    @Test
+    public void mainTask_incrementsListenCount() {
+        when(spotifyAdapter.getCurrentlyPlaying()).thenReturn(Optional.of(songItem));
+        when(songTableDynamoAdapter.songInTable(songItem)).thenReturn(true);
+
+        for (int i = 0; i <= 5; i++) {
+            subject.mainTask().run();
+        }
+
+        verify(songTableDynamoAdapter).incrementSongListenCount(songItem);
     }
 
     @Test

@@ -25,4 +25,7 @@ public class SongItemDDBItem extends DDBItem {
 
     @DynamoDBAttribute(attributeName = TIMESTAMP_KEY)
     private Long timestamp;
+
+    @DynamoDBAttribute(attributeName = TRACK_LISTEN_COUNT_KEY)
+    private Integer listens;
 }
