@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Instant;
 import java.util.NoSuchElementException;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -89,6 +90,66 @@ public class SongTableDynamoAdapterTest {
 
         Exception exception = assertThrows(RuntimeException.class, () -> subject.writeAccessTokenToTable("someToken"));
         assertTrue(exception.getMessage().contains("Dynamo save failed"));
+    }
+
+    @Test
+    public void writeRefreshTokenToTable() {
+        Instant now = Instant.now();
+        AuthTokenDDBItem expectedAuthTokenDDBItem = AuthTokenDDBItem.builder()
+                .tokenName("refresh-token")
+                .tokenType("auth")
+                .token("someToken")
+                .timestamp(now.getEpochSecond())
+                .build();
+
+        subject.writeRefreshTokenToTable("someToken");
+        verify(mapper).save(expectedAuthTokenDDBItem);
+    }
+
+    @Test
+    public void writeRefreshTokenToTableThrows() {
+        doThrow(new RuntimeException("Dynamo save failed")).when(mapper).save(any(DDBItem.class));
+
+        Exception exception = assertThrows(RuntimeException.class, () -> subject.writeRefreshTokenToTable("someToken"));
+        assertTrue(exception.getMessage().contains("Dynamo save failed"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void tryGetRefreshTokenReturnsEmpty() {
+        PaginatedQueryList<AuthTokenDDBItem> mockResponse = (PaginatedQueryList<AuthTokenDDBItem>) mock(PaginatedQueryList.class);
+
+        when(mapper.query(eq(AuthTokenDDBItem.class), any())).thenReturn(mockResponse);
+        when(mockResponse.isEmpty()).thenReturn(true);
+
+        assertTrue(subject.tryGetRefreshToken().isEmpty());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void tryGetRefreshTokenReturnsToken() {
+        AuthTokenDDBItem authTokenDDBItem = AuthTokenDDBItem.builder()
+                .tokenName("refresh-token")
+                .tokenType("auth")
+                .token("someToken")
+                .timestamp(Instant.now().getEpochSecond())
+                .build();
+
+        PaginatedQueryList<AuthTokenDDBItem> mockResponse = (PaginatedQueryList<AuthTokenDDBItem>) mock(PaginatedQueryList.class);
+
+        when(mapper.query(eq(AuthTokenDDBItem.class), any())).thenReturn(mockResponse);
+        when(mockResponse.isEmpty()).thenReturn(false);
+        when(mockResponse.getFirst()).thenReturn(authTokenDDBItem);
+
+        assertEquals(subject.tryGetRefreshToken().get(), "someToken");
+    }
+
+    @Test
+    public void tryGetRefreshTokenThrows() {
+        doThrow(new RuntimeException("Dynamo read failed")).when(mapper).query(any(), any());
+
+        Exception exception = assertThrows(RuntimeException.class, () -> subject.tryGetRefreshToken());
+        assertTrue(exception.getMessage().contains("Dynamo read failed"));
     }
 
     @Test

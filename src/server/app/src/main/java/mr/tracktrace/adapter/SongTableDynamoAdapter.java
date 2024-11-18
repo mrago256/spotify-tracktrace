@@ -15,6 +15,7 @@ import mr.tracktrace.model.SongItem;
 
 import java.time.Instant;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 
 @Singleton
@@ -66,6 +67,38 @@ public class SongTableDynamoAdapter {
                 .build();
 
         saveItemToTable(authTokenDDBItem);
+    }
+
+    public void writeRefreshTokenToTable(String token) {
+        AuthTokenDDBItem authTokenDDBItem = AuthTokenDDBItem.builder()
+                .tokenName("refresh-token")
+                .tokenType("auth")
+                .token(token)
+                .timestamp(Instant.now().getEpochSecond())
+                .build();
+
+        saveItemToTable(authTokenDDBItem);
+    }
+
+    public Optional<String> tryGetRefreshToken() {
+        AuthTokenDDBItem queryItem = AuthTokenDDBItem.builder()
+                .tokenName("refresh-token")
+                .tokenType("auth")
+                .build();
+
+        DynamoDBQueryExpression<AuthTokenDDBItem> queryExpression = new DynamoDBQueryExpression<AuthTokenDDBItem>()
+                .withHashKeyValues(queryItem);
+
+        Callable<PaginatedQueryList<AuthTokenDDBItem>> queryCallable = Retry.decorateCallable(
+                readItemRetryPolicy, () -> dynamoDBMapper.query(AuthTokenDDBItem.class, queryExpression));
+
+        PaginatedQueryList<AuthTokenDDBItem> result;
+        try {
+            result = queryCallable.call();
+            return result.isEmpty() ? Optional.empty() : Optional.of(result.getFirst().getToken());
+        } catch(Exception ex) {
+            throw new RuntimeException(ex);
+        }
     }
 
     public boolean songInTable(SongItem songItem) {

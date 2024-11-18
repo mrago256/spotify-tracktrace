@@ -17,6 +17,7 @@ import se.michaelthelin.spotify.requests.authorization.authorization_code.Author
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 
 @Singleton
@@ -43,6 +44,19 @@ public class AuthorizationManager {
     }
 
     public void initializeAuthorization() {
+        // attempt to read refresh token from table first
+        Optional<String> savedRefreshToken = songTableDynamoAdapter.tryGetRefreshToken();
+        if (savedRefreshToken.isPresent()) {
+            spotifyApi.setRefreshToken(savedRefreshToken.get());
+
+            try {
+                refreshAuthorization();
+                return;
+            } catch (RuntimeException ex) {
+                log.warn("Saved refresh token expired. Starting auth server...", ex);
+            }
+        }
+
         String authCode;
         log.info("Auth URL: {}", getAuthorizationURI());
         log.info("Waiting for auth response...");
@@ -69,6 +83,7 @@ public class AuthorizationManager {
         spotifyApi.setAccessToken(authorizationCodeCredentials.getAccessToken());
         spotifyApi.setRefreshToken(authorizationCodeCredentials.getRefreshToken());
         songTableDynamoAdapter.writeAccessTokenToTable(authorizationCodeCredentials.getAccessToken());
+        songTableDynamoAdapter.writeRefreshTokenToTable(authorizationCodeCredentials.getRefreshToken());
     }
 
     public void refreshAuthorization() {

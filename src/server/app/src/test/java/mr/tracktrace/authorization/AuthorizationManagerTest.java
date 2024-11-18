@@ -16,11 +16,13 @@ import se.michaelthelin.spotify.requests.authorization.authorization_code.Author
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
@@ -45,19 +47,9 @@ public class AuthorizationManagerTest {
     }
 
     @Test
-    public void initializeAuthorization() throws Exception {
+    public void initializeAuthorization() {
         mockUriRequest();
-
-        AuthorizationCodeRequest requestMock = mock(AuthorizationCodeRequest.class);
-        AuthorizationCodeRequest.Builder builderMock = mock(AuthorizationCodeRequest.Builder.class);
-        AuthorizationCodeCredentials responseMock = mock(AuthorizationCodeCredentials.class);
-
-        when(responseMock.getAccessToken()).thenReturn("someToken");
-        when(responseMock.getRefreshToken()).thenReturn("someRefresh");
-
-        when(builderMock.build()).thenReturn(requestMock);
-        when(spotifyApi.authorizationCode("code")).thenReturn(builderMock);
-        when(requestMock.execute()).thenReturn(responseMock);
+        mockInitializeTokens();
 
         try(MockedStatic<AuthServer> authServer = mockStatic(AuthServer.class)) {
             authServer.when(AuthServer::waitForAndRetrieveAuthCode).thenReturn("code");
@@ -78,6 +70,7 @@ public class AuthorizationManagerTest {
 
             assertThrows(RuntimeException.class, () -> subject.initializeAuthorization());
 
+            verify(songTableDynamoAdapter).tryGetRefreshToken();
             verifyNoMoreInteractions(spotifyApi, songTableDynamoAdapter);
         }
     }
@@ -98,21 +91,50 @@ public class AuthorizationManagerTest {
 
             assertThrows(RuntimeException.class, () -> subject.initializeAuthorization());
 
+            verify(songTableDynamoAdapter).tryGetRefreshToken();
             verifyNoMoreInteractions(spotifyApi, songTableDynamoAdapter);
         }
     }
 
     @Test
-    public void refreshAuthorization() throws Exception {
+    public void initializeAuthorization_usesSavedToken() {
+        mockRefreshRequest();
+
+        String token = "someRefreshToken";
+        when(songTableDynamoAdapter.tryGetRefreshToken()).thenReturn(Optional.of(token));
+
+        subject.initializeAuthorization();
+
+        verify(spotifyApi).setRefreshToken(token);
+        verify(spotifyApi).setAccessToken(any(String.class));
+        verify(songTableDynamoAdapter).writeAccessTokenToTable(any(String.class));
+
+        verifyNoMoreInteractions(spotifyApi, songTableDynamoAdapter);
+    }
+
+    @Test
+    public void initializeAuthorization_startsServerOnInvalidSavedToken() throws Exception {
+        mockUriRequest();
+        mockInitializeTokens();
+
         AuthorizationCodeRefreshRequest requestMock = mock(AuthorizationCodeRefreshRequest.class);
         AuthorizationCodeRefreshRequest.Builder builderMock = mock(AuthorizationCodeRefreshRequest.Builder.class);
-        AuthorizationCodeCredentials responseMock = mock(AuthorizationCodeCredentials.class);
-
-        when(responseMock.getAccessToken()).thenReturn("someToken");
 
         when(builderMock.build()).thenReturn(requestMock);
         when(spotifyApi.authorizationCodeRefresh()).thenReturn(builderMock);
-        when(requestMock.execute()).thenReturn(responseMock);
+        doThrow(new RuntimeException("Refresh token invalid")).when(requestMock).execute();
+
+        when(songTableDynamoAdapter.tryGetRefreshToken()).thenReturn(Optional.of("invalidCode"));
+
+        try(MockedStatic<AuthServer> authServer = mockStatic(AuthServer.class)) {
+            authServer.when(AuthServer::waitForAndRetrieveAuthCode).thenReturn("code");
+            subject.initializeAuthorization();
+        }
+    }
+
+    @Test
+    public void refreshAuthorization() {
+        mockRefreshRequest();
 
         subject.refreshAuthorization();
 
@@ -162,5 +184,39 @@ public class AuthorizationManagerTest {
         when(uriBuilderMock.scope(any(AuthorizationScope[].class))).thenReturn(uriBuilderMock);
         when(uriBuilderMock.build()).thenReturn(uriRequestMock);
         when(uriRequestMock.execute()).thenReturn(uriResponseMock);
+    }
+
+    private void mockRefreshRequest() {
+        AuthorizationCodeRefreshRequest requestMock = mock(AuthorizationCodeRefreshRequest.class);
+        AuthorizationCodeRefreshRequest.Builder builderMock = mock(AuthorizationCodeRefreshRequest.Builder.class);
+        AuthorizationCodeCredentials responseMock = mock(AuthorizationCodeCredentials.class);
+
+        when(responseMock.getAccessToken()).thenReturn("someToken");
+
+        when(builderMock.build()).thenReturn(requestMock);
+        when(spotifyApi.authorizationCodeRefresh()).thenReturn(builderMock);
+
+        try {
+            when(requestMock.execute()).thenReturn(responseMock);
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
+        }
+    }
+
+    private void mockInitializeTokens() {
+        AuthorizationCodeRequest requestMock = mock(AuthorizationCodeRequest.class);
+        AuthorizationCodeRequest.Builder builderMock = mock(AuthorizationCodeRequest.Builder.class);
+        AuthorizationCodeCredentials responseMock = mock(AuthorizationCodeCredentials.class);
+
+        when(responseMock.getAccessToken()).thenReturn("someToken");
+        when(responseMock.getRefreshToken()).thenReturn("someRefresh");
+
+        when(builderMock.build()).thenReturn(requestMock);
+        when(spotifyApi.authorizationCode("code")).thenReturn(builderMock);
+        try {
+            when(requestMock.execute()).thenReturn(responseMock);
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
+        }
     }
 }

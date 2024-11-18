@@ -69,5 +69,5 @@ public class AuthServer {
             }
             return queryParams;
         }
-        }
     }
+}
