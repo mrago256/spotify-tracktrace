@@ -2,6 +2,7 @@ package mr.tracktrace.adapter;
 
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
 import com.amazonaws.services.dynamodbv2.datamodeling.PaginatedQueryList;
+import io.github.resilience4j.retry.RetryConfig;
 import mr.tracktrace.adapter.internal.AuthTokenDDBItem;
 import mr.tracktrace.adapter.internal.DDBItem;
 import mr.tracktrace.adapter.internal.SongItemDDBItem;
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.NoSuchElementException;
 
@@ -25,15 +27,19 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.MockitoAnnotations.openMocks;
 
 @ExtendWith(MockitoExtension.class)
 public class SongTableDynamoAdapterTest {
     private SongTableDynamoAdapter subject;
 
-    private static final SongItem songItem = SongItem.builder()
+    private static final SongItem SONG_ITEM = SongItem.builder()
             .trackName("someName")
             .artistName("someArtist")
+            .build();
+
+    private static final RetryConfig SHORT_RETRY = RetryConfig.custom()
+            .maxAttempts(2)
+            .waitDuration(Duration.ofSeconds(0))
             .build();
 
     @Mock
@@ -41,21 +47,20 @@ public class SongTableDynamoAdapterTest {
 
     @BeforeEach
     public void setup() {
-        openMocks(this);
-        subject = new SongTableDynamoAdapter(mapper);
+        subject = new SongTableDynamoAdapter(mapper, SHORT_RETRY);
     }
 
     @Test
     public void writeSongToTable() {
         Instant now = Instant.now();
         SongItemDDBItem expectedSongItemDDBItem = SongItemDDBItem.builder()
-                .trackName(songItem.getTrackName())
-                .artistName(songItem.getArtistName())
+                .trackName(SONG_ITEM.getTrackName())
+                .artistName(SONG_ITEM.getArtistName())
                 .timestamp(now.getEpochSecond())
                 .listens(1)
                 .build();
 
-        subject.writeSongToTable(songItem, now);
+        subject.writeSongToTable(SONG_ITEM, now);
 
         verify(mapper).save(expectedSongItemDDBItem);
     }
@@ -65,7 +70,7 @@ public class SongTableDynamoAdapterTest {
         Instant now = Instant.now();
         doThrow(new RuntimeException("Dynamo save failed")).when(mapper).save(any(DDBItem.class));
 
-        Exception exception = assertThrows(RuntimeException.class, () -> subject.writeSongToTable(songItem, now));
+        Exception exception = assertThrows(RuntimeException.class, () -> subject.writeSongToTable(SONG_ITEM, now));
         assertTrue(exception.getMessage().contains("Dynamo save failed"));
     }
 
@@ -159,7 +164,7 @@ public class SongTableDynamoAdapterTest {
 
         when(mapper.query(eq(SongItemDDBItem.class), any())).thenReturn(mockResponse);
 
-        assertTrue(subject.songInTable(songItem));
+        assertTrue(subject.songInTable(SONG_ITEM));
     }
 
     @Test
@@ -170,14 +175,14 @@ public class SongTableDynamoAdapterTest {
         when(mapper.query(eq(SongItemDDBItem.class), any())).thenReturn(mockResponse);
         when(mockResponse.getFirst()).thenThrow(new NoSuchElementException());
 
-        assertFalse(subject.songInTable(songItem));
+        assertFalse(subject.songInTable(SONG_ITEM));
     }
 
     @Test
     public void songInTableThrows() {
         when(mapper.query(any(), any())).thenThrow(new RuntimeException("Dynamo query failed"));
 
-        Exception exception = assertThrows(RuntimeException.class, () -> subject.songInTable(songItem));
+        Exception exception = assertThrows(RuntimeException.class, () -> subject.songInTable(SONG_ITEM));
         assertTrue(exception.getMessage().contains("Dynamo query failed"));
     }
 
@@ -194,7 +199,7 @@ public class SongTableDynamoAdapterTest {
         when(mapper.query(eq(SongItemDDBItem.class), any())).thenReturn(mockResponse);
         when(mockResponse.getFirst()).thenReturn(SongItemDDBItem.builder().trackName("someName").artistName("someArtist").timestamp(0L).listens(1).build());
 
-        subject.incrementSongListenCount(songItem);
+        subject.incrementSongListenCount(SONG_ITEM);
         verify(mapper).save(expectedUpdateItem);
     }
 }

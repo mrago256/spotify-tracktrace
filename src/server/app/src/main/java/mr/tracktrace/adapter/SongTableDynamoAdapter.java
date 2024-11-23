@@ -5,6 +5,7 @@ import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBQueryExpression;
 import com.amazonaws.services.dynamodbv2.datamodeling.PaginatedQueryList;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import com.google.inject.name.Named;
 import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
@@ -12,6 +13,8 @@ import mr.tracktrace.adapter.internal.AuthTokenDDBItem;
 import mr.tracktrace.adapter.internal.DDBItem;
 import mr.tracktrace.adapter.internal.SongItemDDBItem;
 import mr.tracktrace.model.SongItem;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.NoSuchElementException;
@@ -20,6 +23,8 @@ import java.util.concurrent.Callable;
 
 @Singleton
 public class SongTableDynamoAdapter {
+    private static final Logger log = LoggerFactory.getLogger(SongTableDynamoAdapter.class);
+
     private static final RetryConfig retryPolicyConfig = RetryConfig.custom()
             .maxAttempts(3)
             .intervalFunction(IntervalFunction.ofExponentialBackoff(5L, 2))
@@ -28,12 +33,20 @@ public class SongTableDynamoAdapter {
     private final DynamoDBMapper dynamoDBMapper;
     private final Retry writeItemRetryPolicy;
     private final Retry readItemRetryPolicy;
+    private final Retry readRefreshTokenPolicy;
 
     @Inject
-    public SongTableDynamoAdapter(DynamoDBMapper dynamoDBMapper) {
+    public SongTableDynamoAdapter(DynamoDBMapper dynamoDBMapper,
+                                  @Named("get-refresh-token-retry") RetryConfig refreshTokenRetryPolicyConfig) {
+
         this.dynamoDBMapper = dynamoDBMapper;
+
         this.writeItemRetryPolicy = Retry.of("write-item-retry", retryPolicyConfig);
         this.readItemRetryPolicy = Retry.of("read-item-retry", retryPolicyConfig);
+        this.readRefreshTokenPolicy = Retry.of("read-refresh-token-retry", refreshTokenRetryPolicyConfig);
+
+        Retry.EventPublisher publisher = readRefreshTokenPolicy.getEventPublisher();
+        publisher.onRetry(event -> log.warn(event.toString()));
     }
 
     public void writeSongToTable(SongItem songItem, Instant firstListened) {
@@ -90,7 +103,7 @@ public class SongTableDynamoAdapter {
                 .withHashKeyValues(queryItem);
 
         Callable<PaginatedQueryList<AuthTokenDDBItem>> queryCallable = Retry.decorateCallable(
-                readItemRetryPolicy, () -> dynamoDBMapper.query(AuthTokenDDBItem.class, queryExpression));
+                readRefreshTokenPolicy, () -> dynamoDBMapper.query(AuthTokenDDBItem.class, queryExpression));
 
         PaginatedQueryList<AuthTokenDDBItem> result;
         try {

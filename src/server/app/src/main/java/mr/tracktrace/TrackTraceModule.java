@@ -10,11 +10,13 @@ import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapperConfig;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
-
+import io.github.resilience4j.retry.RetryConfig;
+import jakarta.inject.Named;
 import se.michaelthelin.spotify.SpotifyApi;
 import se.michaelthelin.spotify.SpotifyHttpManager;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -48,6 +50,16 @@ public class TrackTraceModule extends AbstractModule {
                 .build();
 
         return new DynamoDBMapper(ddb, mapperConfig);
+    }
+
+    @Provides
+    @Singleton
+    @Named("get-refresh-token-retry")
+    RetryConfig getRefreshTokenRetryConfig() {
+        return RetryConfig.custom()
+                .maxAttempts(25)
+                .waitDuration(Duration.ofSeconds(20))
+                .build();
     }
 
     @Provides

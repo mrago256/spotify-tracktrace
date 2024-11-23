@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.mockito.MockitoAnnotations.openMocks;
 
 @ExtendWith(MockitoExtension.class)
 public class SpotifyAdapterTest {
@@ -34,7 +33,6 @@ public class SpotifyAdapterTest {
 
     @BeforeEach
     public void setup() {
-        openMocks(this);
         subject = new SpotifyAdapter(spotifyApi);
     }
 

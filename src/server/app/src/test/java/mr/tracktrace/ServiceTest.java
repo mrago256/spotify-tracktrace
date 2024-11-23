@@ -23,14 +23,13 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
-import static org.mockito.MockitoAnnotations.openMocks;
 
 @ExtendWith(MockitoExtension.class)
 public class ServiceTest {
-    private static final SongItem songItem = SongItem.builder()
+    private static final SongItem SONG_ITEM = SongItem.builder()
             .trackName("someName")
             .build();
-    private static final SongItem otherSongItem = SongItem.builder()
+    private static final SongItem OTHER_SONG_ITEM = SongItem.builder()
             .trackName("anotherName")
             .build();
 
@@ -50,7 +49,6 @@ public class ServiceTest {
 
     @BeforeEach
     public void setup() {
-        openMocks(this);
         subject = new Service(authorizationManager, scheduledExecutorService, songTableDynamoAdapter, spotifyAdapter);
     }
 
@@ -82,37 +80,37 @@ public class ServiceTest {
 
     @Test
     public void mainTask_songInTable() {
-        when(spotifyAdapter.getCurrentlyPlaying()).thenReturn(Optional.of(songItem));
-        when(songTableDynamoAdapter.songInTable(songItem)).thenReturn(true);
+        when(spotifyAdapter.getCurrentlyPlaying()).thenReturn(Optional.of(SONG_ITEM));
+        when(songTableDynamoAdapter.songInTable(SONG_ITEM)).thenReturn(true);
 
         subject.mainTask().run();
 
-        verify(songTableDynamoAdapter).songInTable(songItem);
+        verify(songTableDynamoAdapter).songInTable(SONG_ITEM);
         verifyNoMoreInteractions(songTableDynamoAdapter, spotifyAdapter);
     }
 
     @Test
     public void mainTask_writeNewSongToTable() {
-        when(spotifyAdapter.getCurrentlyPlaying()).thenReturn(Optional.of(otherSongItem));
-        when(songTableDynamoAdapter.songInTable(otherSongItem)).thenReturn(false);
+        when(spotifyAdapter.getCurrentlyPlaying()).thenReturn(Optional.of(OTHER_SONG_ITEM));
+        when(songTableDynamoAdapter.songInTable(OTHER_SONG_ITEM)).thenReturn(false);
 
         for (int i = 0; i <= 5; i++) {
             subject.mainTask().run();
         }
 
-        verify(songTableDynamoAdapter).writeSongToTable(eq(otherSongItem), any(Instant.class));
+        verify(songTableDynamoAdapter).writeSongToTable(eq(OTHER_SONG_ITEM), any(Instant.class));
     }
 
     @Test
     public void mainTask_incrementsListenCount() {
-        when(spotifyAdapter.getCurrentlyPlaying()).thenReturn(Optional.of(songItem));
-        when(songTableDynamoAdapter.songInTable(songItem)).thenReturn(true);
+        when(spotifyAdapter.getCurrentlyPlaying()).thenReturn(Optional.of(SONG_ITEM));
+        when(songTableDynamoAdapter.songInTable(SONG_ITEM)).thenReturn(true);
 
         for (int i = 0; i <= 5; i++) {
             subject.mainTask().run();
         }
 
-        verify(songTableDynamoAdapter).incrementSongListenCount(songItem);
+        verify(songTableDynamoAdapter).incrementSongListenCount(SONG_ITEM);
     }
 
     @Test
