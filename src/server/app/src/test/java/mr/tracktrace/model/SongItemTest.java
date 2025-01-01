@@ -19,6 +19,7 @@ public class SongItemTest {
                 .trackName("someName")
                 .artistName("someArtist")
                 .timestamp(0L)
+                .listens(0)
                 .build();
 
         SongItem expectedSongItem = SongItem.builder()

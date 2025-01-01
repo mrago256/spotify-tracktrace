@@ -46,7 +46,7 @@ public class TrackTraceModule extends AbstractModule {
     @Singleton
     DynamoDBMapper getDynamoDBMapper(AmazonDynamoDB ddb) {
         DynamoDBMapperConfig mapperConfig = DynamoDBMapperConfig.builder()
-                .withSaveBehavior(DynamoDBMapperConfig.SaveBehavior.UPDATE_SKIP_NULL_ATTRIBUTES)
+                .withSaveBehavior(DynamoDBMapperConfig.SaveBehavior.UPDATE)
                 .build();
 
         return new DynamoDBMapper(ddb, mapperConfig);

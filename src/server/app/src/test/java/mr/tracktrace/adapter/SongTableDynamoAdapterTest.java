@@ -6,6 +6,7 @@ import io.github.resilience4j.retry.RetryConfig;
 import mr.tracktrace.adapter.internal.AuthTokenDDBItem;
 import mr.tracktrace.adapter.internal.DDBItem;
 import mr.tracktrace.adapter.internal.SongItemDDBItem;
+import mr.tracktrace.adapter.internal.SongTableReadDDBItem;
 import mr.tracktrace.model.SongItem;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -160,9 +161,16 @@ public class SongTableDynamoAdapterTest {
     @Test
     @SuppressWarnings("unchecked")
     public void songInTable() {
-        PaginatedQueryList<SongItemDDBItem> mockResponse = (PaginatedQueryList<SongItemDDBItem>) mock(PaginatedQueryList.class);
+        PaginatedQueryList<SongTableReadDDBItem> mockResponse = (PaginatedQueryList<SongTableReadDDBItem>) mock(PaginatedQueryList.class);
+        SongTableReadDDBItem songTableReadDDBItem = SongTableReadDDBItem.builder()
+                .trackName("someName")
+                .artistName("someArtist")
+                .timestamp(0L)
+                .listens(0)
+                .build();
 
-        when(mapper.query(eq(SongItemDDBItem.class), any())).thenReturn(mockResponse);
+        when(mapper.query(eq(SongTableReadDDBItem.class), any())).thenReturn(mockResponse);
+        when(mockResponse.getFirst()).thenReturn(songTableReadDDBItem);
 
         assertTrue(subject.songInTable(SONG_ITEM));
     }
@@ -170,9 +178,9 @@ public class SongTableDynamoAdapterTest {
     @Test
     @SuppressWarnings("unchecked")
     public void songNotInTable() {
-        PaginatedQueryList<SongItemDDBItem> mockResponse = (PaginatedQueryList<SongItemDDBItem>) mock(PaginatedQueryList.class);
+        PaginatedQueryList<SongTableReadDDBItem> mockResponse = (PaginatedQueryList<SongTableReadDDBItem>) mock(PaginatedQueryList.class);
 
-        when(mapper.query(eq(SongItemDDBItem.class), any())).thenReturn(mockResponse);
+        when(mapper.query(eq(SongTableReadDDBItem.class), any())).thenReturn(mockResponse);
         when(mockResponse.getFirst()).thenThrow(new NoSuchElementException());
 
         assertFalse(subject.songInTable(SONG_ITEM));
@@ -192,12 +200,18 @@ public class SongTableDynamoAdapterTest {
         SongItemDDBItem expectedUpdateItem = SongItemDDBItem.builder()
                 .trackName("someName")
                 .artistName("someArtist")
+                .timestamp(99999999L)
                 .listens(2)
                 .build();
 
-        PaginatedQueryList<SongItemDDBItem> mockResponse = (PaginatedQueryList<SongItemDDBItem>) mock(PaginatedQueryList.class);
-        when(mapper.query(eq(SongItemDDBItem.class), any())).thenReturn(mockResponse);
-        when(mockResponse.getFirst()).thenReturn(SongItemDDBItem.builder().trackName("someName").artistName("someArtist").timestamp(0L).listens(1).build());
+        PaginatedQueryList<SongTableReadDDBItem> mockResponse = (PaginatedQueryList<SongTableReadDDBItem>) mock(PaginatedQueryList.class);
+        when(mapper.query(eq(SongTableReadDDBItem.class), any())).thenReturn(mockResponse);
+        when(mockResponse.getFirst()).thenReturn(SongTableReadDDBItem.builder()
+                .trackName("someName")
+                .artistName("someArtist")
+                .timestamp(99999999L)
+                .listens(1)
+                .build());
 
         subject.incrementSongListenCount(SONG_ITEM);
         verify(mapper).save(expectedUpdateItem);

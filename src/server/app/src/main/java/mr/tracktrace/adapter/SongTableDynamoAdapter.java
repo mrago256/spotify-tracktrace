@@ -12,6 +12,7 @@ import io.github.resilience4j.retry.RetryConfig;
 import mr.tracktrace.adapter.internal.AuthTokenDDBItem;
 import mr.tracktrace.adapter.internal.DDBItem;
 import mr.tracktrace.adapter.internal.SongItemDDBItem;
+import mr.tracktrace.adapter.internal.SongTableReadDDBItem;
 import mr.tracktrace.model.SongItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,10 +62,13 @@ public class SongTableDynamoAdapter {
     }
 
     public void incrementSongListenCount(SongItem songItem) {
-        int newListenCount = getSongListenCount(songItem) + 1;
+        SongItemDDBItem currentSongItem = getSongItemFromTable(songItem);
+        int newListenCount = currentSongItem.getListens() + 1;
+
         SongItemDDBItem songItemDDBItem = SongItemDDBItem.builder()
                 .trackName(songItem.getTrackName())
                 .artistName(songItem.getArtistName())
+                .timestamp(currentSongItem.getTimestamp())
                 .listens(newListenCount)
                 .build();
 
@@ -124,32 +128,26 @@ public class SongTableDynamoAdapter {
         return true;
     }
 
-    private int getSongListenCount(SongItem songItem) {
-        SongItemDDBItem songItemDDBItem = getSongItemFromTable(songItem);
-
-        return songItemDDBItem.getListens();
-    }
-
     private SongItemDDBItem getSongItemFromTable(SongItem songItem) {
-        SongItemDDBItem queryItem = SongItemDDBItem.builder()
+        SongTableReadDDBItem queryItem = SongTableReadDDBItem.builder()
                 .trackName(songItem.getTrackName())
                 .artistName(songItem.getArtistName())
                 .build();
 
-        DynamoDBQueryExpression<SongItemDDBItem> queryExpression = new DynamoDBQueryExpression<SongItemDDBItem>()
+        DynamoDBQueryExpression<SongTableReadDDBItem> queryExpression = new DynamoDBQueryExpression<SongTableReadDDBItem>()
                 .withHashKeyValues(queryItem);
 
-        Callable<PaginatedQueryList<SongItemDDBItem>> queryCallable = Retry.decorateCallable(
-                readItemRetryPolicy, () -> dynamoDBMapper.query(SongItemDDBItem.class, queryExpression));
+        Callable<PaginatedQueryList<SongTableReadDDBItem>> queryCallable = Retry.decorateCallable(
+                readItemRetryPolicy, () -> dynamoDBMapper.query(SongTableReadDDBItem.class, queryExpression));
 
-        PaginatedQueryList<SongItemDDBItem> result;
+        PaginatedQueryList<SongTableReadDDBItem> result;
         try {
             result = queryCallable.call();
         } catch(Exception ex) {
             throw new RuntimeException(ex);
         }
 
-        return result.getFirst();
+        return result.getFirst().toSongItemDDBItem();
     }
 
     private void saveItemToTable(DDBItem ddbItem) {

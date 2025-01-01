@@ -17,7 +17,7 @@ import lombok.NonNull;
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = false)
 @DynamoDBTable(tableName = DDBItem.TABLE_NAME)
-public class SongItemDDBItem extends DDBItem {
+public class SongTableReadDDBItem extends DDBItem {
     @NonNull
     @DynamoDBHashKey(attributeName = TRACK_NAME_KEY)
     private String trackName;
@@ -26,11 +26,18 @@ public class SongItemDDBItem extends DDBItem {
     @DynamoDBRangeKey(attributeName = TRACK_ARTIST_KEY)
     private String artistName;
 
-    @NonNull
     @DynamoDBAttribute(attributeName = TIMESTAMP_KEY)
     private Long timestamp;
 
-    @NonNull
     @DynamoDBAttribute(attributeName = TRACK_LISTEN_COUNT_KEY)
     private Integer listens;
+
+    public SongItemDDBItem toSongItemDDBItem() {
+        return SongItemDDBItem.builder()
+                .trackName(trackName)
+                .artistName(artistName)
+                .timestamp(timestamp)
+                .listens(listens)
+                .build();
+    }
 }

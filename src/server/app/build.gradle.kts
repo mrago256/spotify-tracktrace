@@ -67,7 +67,6 @@ tasks.jacocoTestReport {
 
     classDirectories.setFrom(files(
         fileTree("build/classes/java/main").matching {
-            exclude("**/ExitHandler.class")
             exclude("**/TrackTrace.class")
             exclude("**/TrackTraceModule.class")
         }
