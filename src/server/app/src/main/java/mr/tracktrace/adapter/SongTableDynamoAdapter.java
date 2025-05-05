@@ -62,7 +62,7 @@ public class SongTableDynamoAdapter {
     }
 
     public void incrementSongListenCount(SongItem songItem) {
-        SongItemDDBItem currentSongItem = getSongItemFromTable(songItem);
+        SongItemDDBItem currentSongItem = getSongItemFromTable(songItem).orElseThrow(IllegalStateException::new);
         int newListenCount = currentSongItem.getListens() + 1;
 
         SongItemDDBItem songItemDDBItem = SongItemDDBItem.builder()
@@ -119,35 +119,31 @@ public class SongTableDynamoAdapter {
     }
 
     public boolean songInTable(SongItem songItem) {
-        try {
-            getSongItemFromTable(songItem);
-        } catch (NoSuchElementException ex) {
-            return false;
-        }
-
-        return true;
+        Optional<SongItemDDBItem> maybeTableResult = getSongItemFromTable(songItem);
+        return maybeTableResult.isPresent();
     }
 
-    private SongItemDDBItem getSongItemFromTable(SongItem songItem) {
+    private Optional<SongItemDDBItem> getSongItemFromTable(SongItem songItem) {
         SongTableReadDDBItem queryItem = SongTableReadDDBItem.builder()
                 .trackName(songItem.getTrackName())
                 .artistName(songItem.getArtistName())
                 .build();
 
-        DynamoDBQueryExpression<SongTableReadDDBItem> queryExpression = new DynamoDBQueryExpression<SongTableReadDDBItem>()
-                .withHashKeyValues(queryItem);
+        Callable<SongTableReadDDBItem> loadCallable = Retry.decorateCallable(
+                readItemRetryPolicy, () -> dynamoDBMapper.load(queryItem));
 
-        Callable<PaginatedQueryList<SongTableReadDDBItem>> queryCallable = Retry.decorateCallable(
-                readItemRetryPolicy, () -> dynamoDBMapper.query(SongTableReadDDBItem.class, queryExpression));
-
-        PaginatedQueryList<SongTableReadDDBItem> result;
+        SongTableReadDDBItem result;
         try {
-            result = queryCallable.call();
+            result = loadCallable.call();
         } catch(Exception ex) {
             throw new RuntimeException(ex);
         }
 
-        return result.getFirst().toSongItemDDBItem();
+        if (result == null) {
+            return Optional.empty();
+        }
+
+        return Optional.of(result.toSongItemDDBItem());
     }
 
     private void saveItemToTable(DDBItem ddbItem) {

@@ -52,4 +52,4 @@ for key, value in songData.items():
     'listens': value['listens']
   })
 
-  time.sleep(0.05)
+  time.sleep(0.05) # for around 12 WCU

@@ -16,7 +16,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.NoSuchElementException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -159,9 +158,7 @@ public class SongTableDynamoAdapterTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void songInTable() {
-        PaginatedQueryList<SongTableReadDDBItem> mockResponse = (PaginatedQueryList<SongTableReadDDBItem>) mock(PaginatedQueryList.class);
         SongTableReadDDBItem songTableReadDDBItem = SongTableReadDDBItem.builder()
                 .trackName("someName")
                 .artistName("someArtist")
@@ -169,34 +166,32 @@ public class SongTableDynamoAdapterTest {
                 .listens(0)
                 .build();
 
-        when(mapper.query(eq(SongTableReadDDBItem.class), any())).thenReturn(mockResponse);
-        when(mockResponse.getFirst()).thenReturn(songTableReadDDBItem);
-
+        when(mapper.load(any(SongTableReadDDBItem.class))).thenReturn(songTableReadDDBItem);
         assertTrue(subject.songInTable(SONG_ITEM));
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void songNotInTable() {
-        PaginatedQueryList<SongTableReadDDBItem> mockResponse = (PaginatedQueryList<SongTableReadDDBItem>) mock(PaginatedQueryList.class);
-
-        when(mapper.query(eq(SongTableReadDDBItem.class), any())).thenReturn(mockResponse);
-        when(mockResponse.getFirst()).thenThrow(new NoSuchElementException());
-
+        when(mapper.load(any(SongTableReadDDBItem.class))).thenReturn(null);
         assertFalse(subject.songInTable(SONG_ITEM));
     }
 
     @Test
     public void songInTableThrows() {
-        when(mapper.query(any(), any())).thenThrow(new RuntimeException("Dynamo query failed"));
+        when(mapper.load(any())).thenThrow(new RuntimeException("Dynamo load failed"));
 
         Exception exception = assertThrows(RuntimeException.class, () -> subject.songInTable(SONG_ITEM));
-        assertTrue(exception.getMessage().contains("Dynamo query failed"));
+        assertTrue(exception.getMessage().contains("Dynamo load failed"));
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void incrementSongListenCount() {
+        SongTableReadDDBItem originalItem = SongTableReadDDBItem.builder()
+                .trackName("someName")
+                .artistName("someArtist")
+                .timestamp(99999999L)
+                .listens(1)
+                .build();
         SongItemDDBItem expectedUpdateItem = SongItemDDBItem.builder()
                 .trackName("someName")
                 .artistName("someArtist")
@@ -204,14 +199,7 @@ public class SongTableDynamoAdapterTest {
                 .listens(2)
                 .build();
 
-        PaginatedQueryList<SongTableReadDDBItem> mockResponse = (PaginatedQueryList<SongTableReadDDBItem>) mock(PaginatedQueryList.class);
-        when(mapper.query(eq(SongTableReadDDBItem.class), any())).thenReturn(mockResponse);
-        when(mockResponse.getFirst()).thenReturn(SongTableReadDDBItem.builder()
-                .trackName("someName")
-                .artistName("someArtist")
-                .timestamp(99999999L)
-                .listens(1)
-                .build());
+        when(mapper.load(any(SongTableReadDDBItem.class))).thenReturn(originalItem);
 
         subject.incrementSongListenCount(SONG_ITEM);
         verify(mapper).save(expectedUpdateItem);
